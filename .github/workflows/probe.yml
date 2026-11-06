@@ -1,0 +1,30 @@
+name: Probe court sites
+on:
+  push:
+    paths: [".github/workflows/probe.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch court pages
+        run: |
+          mkdir -p out
+          UA="Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36"
+          curl -s -m 20 https://ipinfo.io/json > out/runner.json || true
+          fetch(){ code=$(curl -sSL -A "$UA" -m 40 -c out/cookies.txt -o "out/$1" -w '%{http_code}' "$2" 2>out/$1.err || echo ERR); echo "$1 $code $(wc -c < out/$1 2>/dev/null) $2" | tee -a out/summary.txt; }
+          fetch displayboard.html "https://courtview2.allahabadhighcourt.in/courtview/CourtViewAllahabad.do"
+          fetch causelist_index.html "https://www.allahabadhighcourt.in/causelist/indexA.html"
+          fetch causelist_status.html "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/causelist"
+          fetch roll_wise.html "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/advocate-cases-roll-wise"
+          fetch listed_today.html "https://www.allahabadhighcourt.in/causelist/rollnoA1.jsp"
+          rm -f out/cookies.txt
+      - name: Save results to probe-results branch
+        run: |
+          cd out
+          git init -q -b probe-results
+          git config user.name "probe-bot"; git config user.email "probe@users.noreply.github.com"
+          git add -A; git commit -qm "Probe $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" probe-results
