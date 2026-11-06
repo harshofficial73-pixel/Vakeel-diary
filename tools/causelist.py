@@ -80,7 +80,10 @@ def parse(pdf_bytes: bytes) -> list[dict]:
             cur["parties"] = re.sub(r" VS ", " vs ", cur["parties"], flags=re.I)
             m = re.search(r"in case ([A-Z][A-Z0-9.()]*-\d+-\d{4})", cur["detail"])
             if m and cur["case"][0].isdigit():
-                cur["application_in"] = m.group(1).replace("-", "/")
+                # an application listed in a main case: file it under the main case
+                cur["application"] = cur["case"]
+                cur["case"] = m.group(1).replace("-", "/")
+                cur["application_in"] = cur["case"]
             if cur["tag"].startswith("With"):
                 cur["connected_with"] = cur["sr"].split(".")[0]
             entries.append(cur)
@@ -189,3 +192,36 @@ if __name__ == "__main__":
     if len(sys.argv) > 2:
         es = match(es, sys.argv[2:])
     print(json.dumps(es[:5] if len(sys.argv) <= 2 else es, indent=1, ensure_ascii=False))
+
+
+# ---------- orders (High Court case status site, no captcha) ----------
+ORDERS_URL = "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/get-order-sheets"
+
+
+def split_case(case: str):
+    m = re.match(r"^([A-Z][A-Z0-9.\-()]*)/(\d+)/(\d{4})$", case.strip().upper())
+    return (m.group(1), m.group(2), m.group(3)) if m else None
+
+
+def parse_orders(html: str) -> dict:
+    sheet = re.search(r"href='([^']*WebDownloadOrderSheet[^']*)'", html)
+    orders = []
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+        tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
+        if len(tds) < 3:
+            continue
+        date = re.sub(r"<[^>]+>|\s", "", tds[1])
+        link = re.search(r"href='([^']*WebDownloadJudgmentDocument[^']*)'", tds[2])
+        if DATE_RE.match(date):
+            orders.append({"date": date, "url": link.group(1) if link else ""})
+    return {"sheet": sheet.group(1).replace("&amp;", "&") if sheet else "", "orders": orders}
+
+
+def fetch_orders(s: requests.Session, case: str) -> dict | None:
+    parts = split_case(case)
+    if not parts:
+        return None
+    r = s.post(ORDERS_URL, data=dict(zip(("ct", "cn", "cy"), parts)),
+               headers={"X-Requested-With": "XMLHttpRequest"}, timeout=60)
+    r.raise_for_status()
+    return parse_orders(r.text)

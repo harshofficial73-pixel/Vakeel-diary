@@ -4,6 +4,8 @@
 //   GET  /board        live Court View display board for Allahabad, as JSON (cached 20 s)
 //   GET  /roll/start   opens the court's "Advocate's Cases – Roll No wise" page and returns its captcha
 //   POST /roll/search  submits roll number + year + the captcha *you typed* and returns your cases
+//   POST /roll/case    full details of one case from that search (same court session)
+//   GET  /orders?case=BAIL/16404/2026   order dates and PDF links (court's order-sheet page, no captcha)
 // Nothing is stored here.
 
 const HC = "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/";
@@ -31,6 +33,8 @@ export default {
       if (url.pathname === "/board") return await board(req, ctx, cors);
       if (url.pathname === "/roll/start") return await rollStart(cors);
       if (url.pathname === "/roll/search" && req.method === "POST") return await rollSearch(await req.json(), cors);
+      if (url.pathname === "/roll/case" && req.method === "POST") return await rollCase(await req.json(), cors);
+      if (url.pathname === "/orders") return await orders(url.searchParams.get("case") || "", cors);
       if (url.pathname === "/") return json({ ok: true, app: "Vakeel Diary relay" }, 200, cors);
       return json({ error: "Not found" }, 404, cors);
     } catch (e) {
@@ -143,9 +147,60 @@ export function parseRollResult(html) {
       const ths = [...tr.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)].map(m => strip(m[1]));
       if (ths.length) { headers = ths; continue; }
       const tds = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => strip(m[1]));
-      const cino = tr.match(/viewCaseData\(\s*['"]?([^'",)]+)/)?.[1];
-      if (tds.length >= 2) rows.push({ cells: tds, cino });
+      const v = tr.match(/viewCaseData\(\s*['"]?([^'",)]+)['"]?\s*(?:,\s*['"]?([^'")]*))?/);
+      if (tds.length >= 2) rows.push({ cells: tds, cino: v?.[1], source: v?.[2] || "" });
     }
   }
   return { ok: true, headers, rows, message: rows.length ? "" : text.slice(0, 300) };
+}
+
+// ---------- orders ----------
+export function parseOrders(html) {
+  const sheet = html.match(/href='([^']*WebDownloadOrderSheet[^']*)'/)?.[1]?.replace(/&amp;/g, "&") || "";
+  const orders = [];
+  for (const tr of html.split(/<tr[\s>]/i).slice(1)) {
+    const tds = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => m[1]);
+    if (tds.length < 3) continue;
+    const date = tds[1].replace(/<[^>]+>|\s/g, "");
+    const link = tds[2].match(/href='([^']*WebDownloadJudgmentDocument[^']*)'/)?.[1] || "";
+    if (/^\d{2}-\d{2}-\d{4}$/.test(date)) orders.push({ date, url: link });
+  }
+  return { sheet, orders };
+}
+
+async function orders(caseNo, cors) {
+  const m = caseNo.trim().toUpperCase().match(/^([A-Z][A-Z0-9.\-()]*)\/(\d+)\/(\d{4})$/);
+  if (!m) return json({ ok: false, error: "Case number should look like BAIL/16404/2026." }, 400, cors);
+  const r = await fetch(HC + "get-order-sheets", {
+    method: "POST",
+    headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
+    body: new URLSearchParams({ ct: m[1], cn: m[2], cy: m[3] }),
+  });
+  return json({ ok: true, case: caseNo.toUpperCase(), ...parseOrders(await r.text()) }, 200, { ...cors, "Cache-Control": "max-age=600" });
+}
+
+// ---------- one case's full details (needs the session from a successful roll search) ----------
+async function rollCase(body, cors) {
+  const { session, cino } = body || {};
+  if (!session || !cino) return json({ ok: false, error: "Search your cases again first." }, 400, cors);
+  const { cookie } = JSON.parse(atob(session));
+  const r = await fetch(HC + "get_CaseDetails", {
+    method: "POST",
+    headers: { "User-Agent": UA, Cookie: cookie, Referer: HC + "advocate-cases-roll-wise",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
+    body: new URLSearchParams({ cino, source: body.source || "" }),
+  });
+  const html = await r.text();
+  if (/PHP Error/i.test(html)) return json({ ok: false, error: "The court didn't return details for this case." }, 200, cors);
+  const sections = [];
+  let title = "";
+  for (const part of html.split(/(<h\d[^>]*>[\s\S]*?<\/h\d>)/i)) {
+    if (/^<h\d/i.test(part)) { title = strip(part); continue; }
+    for (const t of part.match(/<table[\s\S]*?<\/table>/gi) || []) {
+      const rows = t.split(/<tr[\s>]/i).slice(1).map(tr => [...tr.matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi)].map(m => strip(m[1]))).filter(r => r.some(Boolean));
+      if (rows.length) sections.push({ title, rows });
+      title = "";
+    }
+  }
+  return json({ ok: true, sections }, 200, cors);
 }

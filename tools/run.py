@@ -124,9 +124,39 @@ def main():
             c = state["cases"].setdefault(h["case"], {"case": h["case"], "parties": h["parties"], "side": h["side"], "hearings": {}})
             c["parties"], c["side"] = h["parties"], h["side"]
             c["hearings"][h["date"]] = {"court": h["court"], "sr": h["sr"], "list": h["list"], "judges": h["judges"],
-                                        "list_type": h.get("list_type", ""), "tag": h.get("tag", "")}
+                                        "list_type": h.get("list_type", ""), "tag": h.get("tag", ""),
+                                        "application": h.get("application", "")}
             for k in ("petitioner_counsel", "respondent_counsel", "application_in"):
                 if h.get(k): c[k] = h[k]
+
+    # orders: refresh cases listed in the last 30 days or upcoming on every run, everything else weekly
+    import time
+    fetched = 0
+    for c in state["cases"].values():
+        target = c["case"] if cl.split_case(c["case"]) else c.get("application_in", "")
+        if not target or fetched >= 250:
+            continue
+        last = max((dt.datetime.strptime(d, "%d-%m-%Y").date() for d in c["hearings"]), default=today)
+        active = (today - last).days <= 30
+        checked = c.get("orders_checked", "")
+        stale = not checked or (dt.date.fromisoformat(checked[:10]) < today - dt.timedelta(days=7))
+        if not (active and checked[:10] != today.isoformat() or stale):
+            continue
+        try:
+            o = cl.fetch_orders(s, target)
+            fetched += 1
+            if o is not None:
+                new = {x["date"] for x in o["orders"]} - {x["date"] for x in c.get("orders", [])}
+                if c.get("orders_checked") and new:
+                    c["new_orders"] = sorted(new, key=lambda d: dt.datetime.strptime(d, "%d-%m-%Y"))
+                c["orders"], c["order_sheet"] = o["orders"], o["sheet"]
+                c["orders_for"] = target
+            c["orders_checked"] = now.isoformat(timespec="minutes")
+            time.sleep(0.3)
+        except Exception as e:
+            log["errors"].append(f"orders {target}: {e}")
+    log["orders_fetched"] = fetched
+    print(f"Orders refreshed for {fetched} cases")
 
     # telegram: tomorrow and the next listing date after it
     by_date: dict[str, list] = {}
@@ -142,6 +172,10 @@ def main():
             print("TELEGRAM_CHAT_ID not set. Chats that messaged the bot:", ids or "none — send /start to your bot first")
         elif by_date:
             text = message(by_date, today)
+            fresh = [c for c in state["cases"].values() if c.get("new_orders")]
+            if fresh:
+                text += "\n\n<b>New orders uploaded</b>\n" + "\n".join(
+                    f"• {c['case']} — order of {', '.join(c['new_orders'])}" for c in fresh[:15])
             digest = hashlib.sha1(text.encode()).hexdigest()
             evening = now.hour >= 18
             first_today = state["notified"].get("day") != today.isoformat() and evening
@@ -150,6 +184,8 @@ def main():
                        disable_web_page_preview=True)
                 print("Telegram:", "sent" if r.get("ok") else r)
                 if r.get("ok"):
+                    for c in fresh:
+                        c.pop("new_orders", None)
                     state["notified"] = {"digest": digest, "day": today.isoformat() if evening else state["notified"].get("day")}
 
     state["runs"] = ([log] + state.get("runs", []))[:20]
