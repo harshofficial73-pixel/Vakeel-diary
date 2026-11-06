@@ -351,7 +351,7 @@ function homeView() {
   if (!ds.length) h += `<div class="empty" style="margin-top:18px">None of your cases are in the lists published so far. The High Court usually publishes the next day's list in the evening; this checks at 7:00 pm, 9:30 pm and 7:00 am.</div>`;
   for (const d of shown) {
     h += `<section class="day"><div class="day-h"><div class="t">${esc(rel(d.date))}<small>${esc(full(d.date))} · ${d.hits.length} case${d.hits.length === 1 ? "" : "s"}</small></div>
-      <div class="btns"><button class="btn sm" data-share-day="${d.date}">${icon.share}Share list</button><button class="btn sm" data-ics-day="${d.date}">${icon.cal}Calendar</button></div></div>`;
+      <div class="btns"><button class="btn sm primary" data-pdf-day="${d.date}">${icon.doc}Share PDF</button><button class="btn sm" data-share-day="${d.date}">${icon.share}Text</button><button class="btn sm" data-ics-day="${d.date}">${icon.cal}Calendar</button></div></div>`;
     for (const g of byCourt(d.hits)) {
       const live = diff(d.date) === 0 ? boardFor(g.court) : null;
       const now = live ? (live.in_session ? `<span class="now">Now at item ${esc(live.serial)}</span>` : `<span class="now off">Not in session</span>`) : "";
@@ -470,6 +470,7 @@ function moreView() {
 
   <h2 class="sec">Settings</h2>
   <form id="settings" class="card">
+    <label class="f">Your name on shared lists<input id="advName" placeholder="Adv. Harsh …" value="${esc(LS("advname") || "")}" autocomplete="name"></label>
     <label class="f">Relay address (Cloudflare Worker)<input id="relay" type="url" inputmode="url" placeholder="https://vakeel-relay.yourname.workers.dev" value="${esc(S.relay)}"></label>
     <div class="btns"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" id="lockBtn">Lock this device</button></div>
   </form>
@@ -530,6 +531,51 @@ async function loadDetails(id) {
   render();
 }
 
+/* ---------- PDF of a day's list ---------- */
+const PDF_LIBS = ["https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js", "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"];
+function loadScript(src) { return new Promise((ok, bad) => { if ([...document.scripts].some(x => x.src === src)) return ok(); const t = document.createElement("script"); t.src = src; t.onload = ok; t.onerror = bad; document.head.appendChild(t); }); }
+async function sharePdf(date) {
+  toast("Preparing PDF…");
+  for (const src of PDF_LIBS) await loadScript(src);
+  const day = days().find(x => x.date === date);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth(), M = 36, name = LS("advname") || "";
+  const navy = [23, 59, 108], grey = [100, 116, 139];
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(14, 26, 43);
+  doc.text(`Cause list · ${full(date)}`, M, 48);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...grey);
+  doc.text([name, "High Court of Judicature at Allahabad", `${day.hits.length} case${day.hits.length === 1 ? "" : "s"} in ${byCourt(day.hits).length} court${byCourt(day.hits).length === 1 ? "" : "s"}`].filter(Boolean).join("  ·  "), M, 64);
+  const body = [];
+  let n = 0;
+  for (const g of byCourt(day.hits)) {
+    body.push([{ content: `${courtLabel(g.court)}${g.judges?.length ? "   —   " + judgeNames(g.judges) : ""}`, colSpan: 6,
+      styles: { fillColor: [234, 240, 248], textColor: navy, fontStyle: "bold", fontSize: 9.5, halign: "left" } }]);
+    for (const h of g.list) body.push([String(++n), h.sr, h.case + (h.application ? `\nAppl. ${h.application}` : ""), tc(h.parties),
+      h.side === "petitioner" ? "Petitioner" : "Respondent", tc((h.list || "").split(" — ").pop()) + (h.list_type && h.list_type !== "Combined Cause List" ? `\n(${h.list_type})` : "")]);
+  }
+  doc.autoTable({
+    startY: 80, margin: { left: M, right: M },
+    head: [["#", "Item", "Case No.", "Parties", "For", "List"]], body,
+    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 5, textColor: [14, 26, 43], lineColor: [227, 232, 239], lineWidth: 0.5, valign: "top" },
+    headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+    columnStyles: { 0: { cellWidth: 22, halign: "right", textColor: grey }, 1: { cellWidth: 36, halign: "center", fontStyle: "bold" }, 2: { cellWidth: 96, font: "courier", fontStyle: "bold" }, 4: { cellWidth: 62 }, 5: { cellWidth: 92, textColor: grey } },
+    didDrawPage: () => {
+      const H = doc.internal.pageSize.getHeight();
+      doc.setFontSize(8); doc.setTextColor(...grey);
+      doc.text(`Vakeel Diary · from the High Court's published cause list · ${new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`, M, H - 20);
+      doc.text(`Page ${doc.internal.getNumberOfPages()}`, W - M, H - 20, { align: "right" });
+    },
+  });
+  const fname = `Cause list ${date}.pdf`;
+  const file = new File([doc.output("blob")], fname, { type: "application/pdf" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: fname }); return; } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+  toast("PDF saved");
+}
+
 /* ---------- events ---------- */
 document.addEventListener("click", async e => {
   const b = e.target.closest("button,[data-case]"); if (!b) return;
@@ -540,6 +586,7 @@ document.addEventListener("click", async e => {
   if (d.day !== undefined) { S.homeDay = S.homeDay === d.day || !d.day ? null : d.day; render(); return; }
   if (d.bf) { S.boardFilter = d.bf; render(); return; }
   if (d.cf) { S.casesFilter = d.cf; render(); return; }
+  if (d.pdfDay) { b.disabled = true; try { await sharePdf(d.pdfDay); } catch (err) { toast("Couldn't make the PDF. Check your connection and try again."); } b.disabled = false; return; }
   if (d.shareDay) { const day = days().find(x => x.date === d.shareDay); share(`My cases listed on ${full(d.shareDay)}:\n\n` + byCourt(day.hits).map(g => `${courtLabel(g.court)}\n` + g.list.map(h => `  Item ${h.sr} · ${h.case} · ${tc(h.parties)}`).join("\n")).join("\n\n")); return; }
   if (d.icsDay) { const day = days().find(x => x.date === d.icsDay); ics(day.hits.map(h => ({ h, date: d.icsDay })), `cases-${d.icsDay}.ics`); return; }
   if (d.shareCase) { const c = allCases().find(x => x.case === d.shareCase); share(`Your case ${listingText(c.next, c.next.date)}`); return; }
@@ -573,7 +620,7 @@ document.addEventListener("submit", async e => {
     catch (err) { btn.disabled = false; btn.textContent = "Unlock";
       document.getElementById("lockErr").innerHTML = `<div class="notice bad">${err.code === "pass" ? "That passphrase doesn't match the one saved in GitHub." : err.code === "none" ? "No results yet. Run “Check cause list” once on GitHub, then try again." : "Couldn't download your results. Check your connection."}</div>`; }
   }
-  if (e.target.id === "settings") { S.relay = document.getElementById("relay").value.trim(); SET("relay", S.relay || null); toast("Saved"); fetchBoard(); render(); }
+  if (e.target.id === "settings") { S.relay = document.getElementById("relay").value.trim(); SET("relay", S.relay || null); SET("advname", document.getElementById("advName").value.trim() || null); toast("Saved"); fetchBoard(); render(); }
 });
 addEventListener("popstate", () => { if (S.caseId) { S.caseId = null; render(); } });
 
