@@ -1,0 +1,29 @@
+name: Self-test
+on:
+  push:
+    paths: ["tools/**", "worker/**", ".github/workflows/selftest.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: pip install -r tools/requirements.txt && mkdir -p selftest
+      - name: Cause list download and parse
+        working-directory: tools
+        run: python selftest.py
+      - name: Relay (display board + captcha flow)
+        working-directory: worker
+        run: node selftest.mjs
+      - name: Save report
+        if: always()
+        run: |
+          cd selftest && git init -q -b selftest && git config user.name bot && git config user.email bot@users.noreply.github.com
+          git add -A && git commit -qm "Self-test $(date -u +%FT%TZ)" && git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" selftest

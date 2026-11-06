@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vakeel Diary</title>
+<meta name="theme-color" content="#0F5C4D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Vakeel Diary">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: phone-first; sticky header with last-checked status, 3 views on a bottom bar (Listings / Board / My cases) */
+:root{
+  --bg:#EEF1EF; --surface:#FFFFFF; --ink:#16212B; --muted:#5B6A72; --line:#D5DCD9;
+  --accent:#0F5C4D; --accent-soft:#DCEBE6; --onaccent:#FFFFFF;
+  --warn:#9A5B00; --warn-soft:#FBEBCF; --crit:#A3262A; --crit-soft:#F8DEDD; --live:#1D6FD1; --live-soft:#DDE9F9;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:10px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0E1417; --surface:#162026; --ink:#E6ECEA; --muted:#93A3A9; --line:#26343B;
+  --accent:#5FC2A8; --accent-soft:#163A33; --onaccent:#062019;
+  --warn:#F0B35A; --warn-soft:#3A2A10; --crit:#F08A85; --crit-soft:#3D1A1B; --live:#7FB2F0; --live-soft:#14263B; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--body);-webkit-text-size-adjust:100%;
+  padding-top:env(safe-area-inset-top,0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:780px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding-block:12px 10px}
+.brand{font:800 12px var(--display);font-stretch:80%;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.today{font:700 24px/1.1 var(--display);font-stretch:85%}
+.status{font-size:12px;color:var(--muted);text-align:right;max-width:52%}
+main.wrap{padding-block:4px 120px}
+h2.sec{font:700 13px var(--display);font-stretch:80%;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  margin:22px 0 8px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h2.sec .n{font:500 12px var(--mono);letter-spacing:0}
+.day-h{font:800 22px/1.15 var(--display);font-stretch:85%;margin:22px 0 2px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.day-h small{font:600 13px var(--body);color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px}
+.slot{font-family:var(--display);font-stretch:75%;text-align:center;line-height:1;border-right:1px solid var(--line);padding-right:10px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.slot .c{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.slot b{display:block;font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+.slot .i{font-size:11px;color:var(--muted)} .slot .i b{font-size:18px;color:var(--ink);display:inline}
+.main{min-width:0;display:flex;flex-direction:column;gap:3px}
+.cno{font:500 13px var(--mono)}
+.parties{font-weight:600;overflow-wrap:anywhere}
+.meta{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.pill{font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:99px;max-width:100%;overflow-wrap:anywhere;background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.live{background:var(--live-soft);color:var(--live)}
+.pill.mute{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:14px;color:var(--muted);font-size:14px}
+.notice{border-radius:var(--r);padding:10px 12px;font-size:13.5px;margin-top:12px;background:var(--warn-soft);color:var(--warn)}
+.notice.err{background:var(--crit-soft);color:var(--crit)}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+nav.tabs button{flex:1;max-width:200px;background:none;border:0;color:var(--muted);font:600 13px var(--body);padding:10px 4px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav.tabs svg{width:22px;height:22px} nav.tabs button[aria-current="true"]{color:var(--accent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  font:600 14px var(--body);padding:9px 14px;cursor:pointer;text-decoration:none;min-height:42px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onaccent)} .btn.sm{min-height:34px;padding:6px 10px;font-size:13px}
+.btn:disabled{opacity:.55;cursor:default}
+.btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input,select{width:100%;font:16px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* board */
+.board{display:flex;flex-direction:column;gap:6px}
+.brow{display:grid;grid-template-columns:52px 64px minmax(0,1fr);gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.brow.off{background:transparent;border-style:dashed;grid-template-columns:52px minmax(0,1fr)}
+.brow.mine{border-color:var(--live);box-shadow:inset 3px 0 0 var(--live)}
+.brow .ct{font:800 20px var(--display);font-stretch:75%;text-align:center}
+.brow .sn{font:800 26px var(--display);font-stretch:75%;text-align:center;font-variant-numeric:tabular-nums;color:var(--accent)}
+.brow .sn small{display:block;font:600 10px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.brow .d{min-width:0;font-size:13px} .brow .d .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .d .m{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbar{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:160px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);color:var(--ink);font:600 13px var(--body);padding:8px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.captcha{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.captcha img{height:52px;border-radius:6px;border:1px solid var(--line);background:#fff}
+table.res{border-collapse:collapse;font-size:13px;width:100%} table.res td,table.res th{border-top:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.scroll{overflow-x:auto}
+.hist{list-style:none;margin:0;padding:0;font-size:13px} .hist li{display:flex;gap:10px;padding:4px 0;border-top:1px solid var(--line)} .hist li:first-child{border-top:0}
+.hist .dt{font:500 12px var(--mono);color:var(--muted);min-width:86px}
+.lock{max-width:440px;margin:40px auto 0}
+.lock h1{font:800 34px/1.05 var(--display);font-stretch:80%;margin:0 0 6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:99px;font-size:14px;z-index:40;max-width:calc(100% - 32px)}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div><div class="brand">Vakeel Diary</div><div class="today" id="todayLbl"></div></div>
+  <div class="status" id="statusLbl"></div>
+</div></header>
+<main class="wrap" id="view"></main>
+<nav class="tabs" id="tabs" aria-label="Sections" hidden>
+  <button data-tab="listings" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Listings</button>
+  <button data-tab="board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9h4M7 12h7"/></svg>Display board</button>
+  <button data-tab="cases"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>My cases</button>
+</nav>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(() => {
+const REPO = "harshofficial73-pixel/Vakeel-diary";
+const qs = new URLSearchParams(location.search);
+const VAULT_URL = qs.get("vault") || `https://raw.githubusercontent.com/${REPO}/data/vault.json`;
+const LS = k => { try { return localStorage.getItem("vd." + k); } catch (e) { return null; } };
+const SET = (k, v) => { try { v == null ? localStorage.removeItem("vd." + k) : localStorage.setItem("vd." + k, v); } catch (e) {} };
+
+let vault = null, board = null, boardAt = 0, boardErr = "", tab = LS("tab") || "listings", boardFilter = "mine", boardQ = "";
+let relay = qs.get("relay") || LS("relay") || "";
+let roll = { session: null, image: null, rows: JSON.parse(LS("rollrows") || "[]"), headers: JSON.parse(LS("rollheaders") || "[]"), msg: "" };
+
+/* ---------- dates (IST) ---------- */
+const istNow = () => new Date(Date.now() + (330 + new Date().getTimezoneOffset()) * 60000);
+const pd = s => { const [d, m, y] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const dayDiff = s => Math.round((pd(s) - new Date(istNow().toDateString())) / 864e5);
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const nice = s => { const d = pd(s); return `${DOW[d.getDay()]}, ${d.getDate()} ${MON[d.getMonth()]}`; };
+const label = s => { const n = dayDiff(s); return n === 0 ? "Today" : n === 1 ? "Tomorrow" : n === 2 ? "Day after tomorrow" : nice(s); };
+const ago = iso => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m/60)} h ago` : `${Math.round(m/1440)} d ago`; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const sortSr = (a, b) => a.court.localeCompare(b.court, "en", { numeric: true }) || parseFloat(a.sr) - parseFloat(b.sr);
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2800); }
+
+/* ---------- vault (PBKDF2-SHA256 -> AES-GCM, same as tools/run.py) ---------- */
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function openVault(box, pass) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: b64(box.salt), iterations: box.iter }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(box.iv) }, key, b64(box.data));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function load(pass) {
+  const r = await fetch(VAULT_URL + (VAULT_URL.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
+  if (r.status === 404) throw { code: "none" };
+  if (!r.ok) throw { code: "net" };
+  const box = await r.json();
+  try { return await openVault(box, pass); } catch (e) { throw { code: "pass" }; }
+}
+
+/* ---------- board ---------- */
+async function fetchBoard() {
+  if (!relay) return;
+  try {
+    const r = await fetch(relay.replace(/\/$/, "") + "/board", { cache: "no-store" });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Relay error");
+    board = j; boardAt = Date.now(); boardErr = "";
+  } catch (e) { boardErr = "Couldn't reach the display board. Check the relay address in My cases → Settings."; }
+  if (tab === "board" || tab === "listings") render();
+}
+const normCourt = c => String(c).replace(/\./g, "").toUpperCase();
+const boardFor = c => board?.courts?.find(x => normCourt(x.court) === normCourt(c));
+
+/* ---------- data helpers ---------- */
+function upcoming() {
+  const by = {};
+  for (const v of Object.values(vault?.listings || {})) {
+    if (dayDiff(v.date) < 0) continue;
+    const arr = by[v.date] ||= [];
+    for (const h of v.hits) if (!arr.some(x => x.court === h.court && x.sr === h.sr && x.case === h.case)) arr.push(h);
+  }
+  return Object.keys(by).sort((a, b) => pd(a) - pd(b)).map(d => ({ date: d, hits: by[d].sort(sortSr) }));
+}
+function checked() {
+  const ls = Object.values(vault?.listings || {}).filter(v => dayDiff(v.date) >= 0);
+  return ls.map(v => `${nice(v.date)} ${v.list === "Z" ? "combined" : v.list === "U" ? "additional" : "supplementary"} list (${v.entries.toLocaleString("en-IN")} entries)`);
+}
+
+/* ---------- views ---------- */
+function render() {
+  document.getElementById("todayLbl").textContent = nice(`${istNow().getDate()}-${istNow().getMonth()+1}-${istNow().getFullYear()}`);
+  const v = document.getElementById("view");
+  document.getElementById("tabs").hidden = !vault;
+  if (!vault) { v.innerHTML = lockView(); document.getElementById("statusLbl").textContent = ""; return; }
+  document.getElementById("statusLbl").innerHTML = vault.updated ? `Court list checked ${esc(ago(vault.updated))}` : "";
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-current", String(b.dataset.tab === tab)));
+  v.innerHTML = tab === "board" ? boardView() : tab === "cases" ? casesView() : listingsView();
+}
+
+function lockView(err) {
+  return `<div class="lock"><h1>Your cause list, every evening.</h1>
+  <p class="meta">Enter the passphrase you saved in GitHub as <span class="cno">VAULT_PASSPHRASE</span>. It unlocks your listings on this device only.</p>
+  <form id="unlock" class="box">
+    <label class="f">Passphrase<input id="pass" type="password" autocomplete="current-password" required></label>
+    <div id="lockErr"></div>
+    <button class="btn primary" type="submit">Unlock</button>
+  </form></div>`;
+}
+
+function hitCard(h, date) {
+  const live = dayDiff(date) === 0 ? boardFor(h.court) : null;
+  let liveChip = "";
+  if (live?.in_session) {
+    const now = parseFloat(live.serial), mine = parseFloat(h.sr);
+    liveChip = isNaN(now) ? "" : now >= mine ? `<span class="pill live">Court on item ${esc(live.serial)} — reached</span>` : `<span class="pill live">Court on item ${esc(live.serial)} · ${Math.round(mine - now)} to go</span>`;
+  } else if (live && !live.in_session) liveChip = `<span class="pill mute">Court not in session</span>`;
+  return `<div class="card">
+    <div class="slot"><div><div class="c">Court</div><b>${esc(h.court)}</b></div><div class="i">Item <b>${esc(h.sr)}</b></div></div>
+    <div class="main">
+      <span class="cno">${esc(h.case)}${h.application_in ? ` · in ${esc(h.application_in)}` : ""}</span>
+      <span class="parties">${esc(h.parties)}</span>
+      <span class="meta">${esc([...new Set(h.judges || [])].join(" & ").replace(/HON'BLE /g, ""))}</span>
+      <div class="chips"><span class="pill">For ${esc(h.side)}</span>${h.list ? `<span class="pill mute">${esc(h.list.replace(" — ", " · "))}</span>` : ""}${h.list_type && h.list_type !== "Combined Cause List" ? `<span class="pill warn">${esc(h.list_type)}</span>` : ""}${h.connected_with ? `<span class="pill mute">With item ${esc(h.connected_with)}</span>` : ""}${liveChip}</div>
+    </div></div>`;
+}
+
+function listingsView() {
+  const days = upcoming();
+  const errs = vault.runs?.[0]?.errors || [];
+  let html = errs.length ? `<div class="notice">Last check had a problem: ${esc(errs[0])}. It retries at the next scheduled time.</div>` : "";
+  if (!days.length) html += `<h2 class="sec">Upcoming</h2><div class="empty">None of your cases are in the published lists yet. The court usually publishes the next day's list in the evening, and this checks at 7 pm, 9:30 pm and 7 am.</div>`;
+  for (const d of days) {
+    html += `<div class="day-h">${esc(label(d.date))}<small>${esc(nice(d.date))} · ${d.hits.length} case${d.hits.length === 1 ? "" : "s"}</small></div>`;
+    html += d.hits.length ? `<div class="list">${d.hits.map(h => hitCard(h, d.date)).join("")}</div>` : `<div class="empty">No cases in this list.</div>`;
+  }
+  const c = checked();
+  if (c.length) html += `<p class="meta" style="margin-top:18px">Checked: ${esc(c.join("; "))}.</p>`;
+  return html;
+}
+
+function boardView() {
+  if (!relay) return `<h2 class="sec">Display board</h2><div class="empty">Add your relay address in <b>My cases → Settings</b> to see the live board.</div>`;
+  const todays = new Set((upcoming().find(d => dayDiff(d.date) === 0)?.hits || []).map(h => normCourt(h.court)));
+  let rows = board?.courts || [];
+  const q = boardQ.trim().toUpperCase();
+  if (boardFilter === "mine") rows = rows.filter(r => todays.has(normCourt(r.court)));
+  if (boardFilter === "session") rows = rows.filter(r => r.in_session);
+  if (q) rows = rows.filter(r => [r.court, r.case, r.title, r.petitioner_counsel, r.respondent_counsel].join(" ").toUpperCase().includes(q));
+  const seg = (k, l) => `<button data-bf="${k}" aria-pressed="${boardFilter === k}">${l}</button>`;
+  return `<div class="toolbar"><div class="seg">${seg("mine", "My courts today")}${seg("session", "In session")}${seg("all", "All")}</div>
+      <input id="bq" type="search" placeholder="Court, case or counsel" value="${esc(boardQ)}" autocomplete="off"></div>
+    ${boardErr ? `<div class="notice err">${esc(boardErr)}</div>` : ""}
+    <h2 class="sec">Allahabad · Court View<span class="n">${board ? "updated " + esc(new Date(board.fetched_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit" })) : "loading…"}</span></h2>
+    <div class="board">${rows.map(r => r.in_session ? `<div class="brow${todays.has(normCourt(r.court)) ? " mine" : ""}">
+        <div class="ct">${esc(r.court)}</div><div class="sn">${esc(r.serial)}<small>Item</small></div>
+        <div class="d"><div class="t"><span class="cno">${esc(r.case)}</span> · ${esc(r.title)}</div><div class="m">${esc(r.list)}${r.progress ? " · " + esc(r.progress) : ""}${r.info ? " · " + esc(r.info) : ""}</div></div></div>`
+      : `<div class="brow off"><div class="ct">${esc(r.court)}</div><div class="d"><div class="m">Not in session${r.info ? " · " + esc(r.info) : ""}</div></div></div>`).join("")
+      || `<div class="empty">${boardFilter === "mine" ? "None of your courts today are on the board yet. Switch to All to see every court." : "No courts match."}</div>`}</div>
+    <p class="meta" style="margin-top:12px">Refreshes every 30 seconds. The court's own note applies: exact status may be confirmed physically at the court.</p>`;
+}
+
+function casesView() {
+  const cases = Object.values(vault.cases || {}).map(c => ({ ...c, dates: Object.keys(c.hearings).sort((a, b) => pd(b) - pd(a)) })).sort((a, b) => pd(b.dates[0]) - pd(a.dates[0]));
+  const thisYear = istNow().getFullYear();
+  return `<h2 class="sec">Seen in cause lists<span class="n">${cases.length}</span></h2>
+    ${cases.length ? `<div class="list">${cases.map(c => `<div class="box" style="gap:6px"><span class="cno">${esc(c.case)}</span><span class="parties">${esc(c.parties)}</span>
+      <ul class="hist">${c.dates.slice(0, 4).map(d => `<li><span class="dt">${esc(d)}</span><span>Court ${esc(c.hearings[d].court)} · Item ${esc(c.hearings[d].sr)}</span></li>`).join("")}</ul></div>`).join("")}</div>`
+      : `<div class="empty">Every case of yours that appears in a cause list is added here automatically, with its dates and courts.</div>`}
+
+    <h2 class="sec">All my cases from the court</h2>
+    <div class="box">
+      <p class="meta" style="margin:0">Pulls your cases from the High Court's “Advocate's Cases – Roll No wise” page, one case year at a time. The court asks for a captcha each time, so you type it here.</p>
+      ${relay ? `<div class="grid">
+        <label class="f">Roll number<input id="rollNo" placeholder="A/X0000/2012" value="${esc(LS("roll") || "")}" autocapitalize="characters"></label>
+        <label class="f">Case year<input id="rollYear" type="number" inputmode="numeric" min="1950" max="${thisYear}" value="${esc(LS("rollyear") || thisYear)}"></label></div>
+        ${roll.image ? `<div class="captcha"><img src="${roll.image}" alt="Captcha from the High Court site"><label class="f" style="flex:1">Type the captcha<input id="rollCap" inputmode="numeric" autocomplete="off"></label></div>
+          <div class="btns"><button class="btn primary" id="rollGo">Get my cases</button><button class="btn sm" id="rollNew">New captcha</button></div>`
+        : `<div class="btns"><button class="btn primary" id="rollNew">Start</button></div>`}
+        ${roll.msg ? `<div class="notice">${esc(roll.msg)}</div>` : ""}
+        ${roll.rows.length ? `<div class="scroll"><table class="res">${roll.headers.length ? `<tr>${roll.headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr>` : ""}${roll.rows.map(r => `<tr>${r.cells.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</table></div>` : ""}`
+      : `<div class="empty">Add your relay address below first.</div>`}
+    </div>
+
+    <h2 class="sec">Settings</h2>
+    <form id="settings" class="box">
+      <label class="f">Relay address (Cloudflare Worker)<input id="relay" type="url" placeholder="https://vakeel-relay.yourname.workers.dev" value="${esc(relay)}"></label>
+      <div class="btns"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" id="lockBtn">Lock this device</button>
+      <a class="btn" href="https://github.com/${REPO}/actions/workflows/causelist.yml" target="_blank" rel="noopener">Run a check now</a></div>
+    </form>`;
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", async e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.tab) { tab = b.dataset.tab; SET("tab", tab); render(); scrollTo(0, 0); if (tab === "board") fetchBoard(); return; }
+  if (b.dataset.bf) { boardFilter = b.dataset.bf; render(); return; }
+  if (b.id === "lockBtn") { SET("pass", null); vault = null; render(); return; }
+  if (b.id === "rollNew") {
+    b.disabled = true; roll.msg = "";
+    try { const r = await fetch(relay.replace(/\/$/, "") + "/roll/start"); const j = await r.json(); if (!r.ok) throw new Error(j.error); roll.session = j.session; roll.image = j.image; }
+    catch (err) { roll.msg = err.message || "Couldn't reach the court site through the relay."; }
+    render(); document.getElementById("rollCap")?.focus(); return;
+  }
+  if (b.id === "rollGo") {
+    const no = document.getElementById("rollNo").value.trim().toUpperCase(), yr = document.getElementById("rollYear").value.trim(), cap = document.getElementById("rollCap").value.trim();
+    SET("roll", no); SET("rollyear", yr);
+    b.disabled = true; b.textContent = "Fetching…";
+    try {
+      const r = await fetch(relay.replace(/\/$/, "") + "/roll/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session: roll.session, roll: no, year: yr, captcha: cap }) });
+      const j = await r.json();
+      if (!r.ok || !j.ok) roll.msg = j.error || "The court didn't accept that. Try a new captcha.";
+      else { roll.rows = j.rows; roll.headers = j.headers; roll.msg = j.rows.length ? `${j.rows.length} cases for ${yr}.` : (j.message || `No cases found for ${yr}.`); SET("rollrows", JSON.stringify(j.rows)); SET("rollheaders", JSON.stringify(j.headers)); }
+    } catch (err) { roll.msg = "Couldn't reach the court site through the relay."; }
+    roll.image = null; roll.session = null; render();
+  }
+});
+document.addEventListener("submit", async e => {
+  e.preventDefault();
+  if (e.target.id === "unlock") {
+    const pass = document.getElementById("pass").value, btn = e.target.querySelector("button");
+    btn.disabled = true; btn.textContent = "Unlocking…";
+    try { vault = await load(pass); SET("pass", pass); render(); fetchBoard(); }
+    catch (err) {
+      btn.disabled = false; btn.textContent = "Unlock";
+      document.getElementById("lockErr").innerHTML = `<div class="notice err">${err.code === "pass" ? "That passphrase doesn't match the one in GitHub." : err.code === "none" ? "No results yet. Run the “Check cause list” job once on GitHub, then try again." : "Couldn't download your results. Check your connection."}</div>`;
+    }
+  }
+  if (e.target.id === "settings") { relay = document.getElementById("relay").value.trim(); SET("relay", relay || null); toast("Saved"); fetchBoard(); render(); }
+});
+document.addEventListener("input", e => {
+  if (e.target.id === "bq") { boardQ = e.target.value; const p = e.target.selectionStart; render(); const n = document.getElementById("bq"); n.focus(); n.setSelectionRange(p, p); }
+});
+
+/* ---------- start ---------- */
+(async () => {
+  render();
+  const pass = LS("pass");
+  if (pass) { try { vault = await load(pass); } catch (e) { if (e.code === "pass") SET("pass", null); } render(); }
+  fetchBoard();
+  setInterval(() => { if (document.visibilityState === "visible" && (tab === "board" || tab === "listings")) fetchBoard(); }, 30000);
+  setInterval(async () => { const p = LS("pass"); if (p && document.visibilityState === "visible") { try { vault = await load(p); render(); } catch (e) {} } }, 10 * 60000);
+})();
+})();
+</script>
+</body>
+</html>

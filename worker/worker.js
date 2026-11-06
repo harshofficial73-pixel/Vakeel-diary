@@ -1,0 +1,147 @@
+// Vakeel Diary relay (Cloudflare Worker, free plan).
+// The court sites don't allow browsers on other sites to read them directly, so the app asks this
+// relay instead. It does two things:
+//   GET  /board        live Court View display board for Allahabad, as JSON (cached 20 s)
+//   GET  /roll/start   opens the court's "Advocate's Cases – Roll No wise" page and returns its captcha
+//   POST /roll/search  submits roll number + year + the captcha *you typed* and returns your cases
+// Nothing is stored here.
+
+const HC = "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/";
+const BOARD = "https://courtview2.allahabadhighcourt.in/courtview/CourtViewAllahabad.do";
+// Only your app may use this relay. Add more origins (comma-separated) in the Worker's ALLOWED_ORIGINS variable.
+const DEFAULT_ORIGINS = "https://harshofficial73-pixel.github.io";
+const UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36 VakeelDiary";
+
+export default {
+  async fetch(req, env, ctx) {
+    const url = new URL(req.url);
+    const origin = req.headers.get("Origin") || "";
+    const allowed = (env.ALLOWED_ORIGINS || DEFAULT_ORIGINS).split(",").map(s => s.trim()).filter(Boolean);
+    const okOrigin = !allowed.length || allowed.includes(origin);
+    const cors = {
+      "Access-Control-Allow-Origin": okOrigin ? (origin || "*") : allowed[0],
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Vary": "Origin",
+    };
+    if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+    if (!okOrigin) return json({ error: "This relay only answers your Vakeel Diary app." }, 403, cors);
+    try {
+      if (url.pathname === "/board") return await board(req, ctx, cors);
+      if (url.pathname === "/roll/start") return await rollStart(cors);
+      if (url.pathname === "/roll/search" && req.method === "POST") return await rollSearch(await req.json(), cors);
+      if (url.pathname === "/") return json({ ok: true, app: "Vakeel Diary relay" }, 200, cors);
+      return json({ error: "Not found" }, 404, cors);
+    } catch (e) {
+      return json({ error: "The court site didn't respond. Try again in a minute.", detail: String(e) }, 502, cors);
+    }
+  },
+};
+
+function json(obj, status = 200, headers = {}) {
+  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json", ...headers } });
+}
+
+// ---------- display board ----------
+async function board(req, ctx, cors) {
+  const cache = caches.default;
+  const key = new Request(BOARD + "#json");
+  let hit = await cache.match(key);
+  if (!hit) {
+    const r = await fetch(BOARD, { headers: { "User-Agent": UA } });
+    const html = await r.text();
+    hit = json({ fetched_at: new Date().toISOString(), courts: parseBoard(html) }, 200, { "Cache-Control": "max-age=20" });
+    ctx.waitUntil(cache.put(key, hit.clone()));
+  }
+  const res = new Response(hit.body, hit);
+  for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
+  return res;
+}
+
+const strip = s => s.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ")
+  .replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/[ \t]+/g, " ").replace(/\n\s+/g, "\n").trim();
+
+export function parseBoard(html) {
+  const out = [];
+  const rows = html.split(/<tr[\s>]/i).slice(1);
+  for (const row of rows) {
+    const cells = [...row.matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/gi)].map(m => ({ attrs: m[1], text: strip(m[2]) }));
+    if (cells.length < 2 || !/#0181c5/i.test(cells[0].attrs) || /class="head"/.test(cells[0].attrs)) continue;
+    const court = cells[0].text;
+    if (/colspan/i.test(cells[1].attrs)) {
+      out.push({ court, in_session: false, note: cells[1].text, info: cells[2]?.text || "" });
+      continue;
+    }
+    const [, serial, list, progress, details, info] = cells.map(c => c.text);
+    const d = (details || "").replace(/\n/g, " ");
+    const pick = re => (d.match(re)?.[1] || "").trim();
+    out.push({
+      court, in_session: true, serial, list, progress, info: info || "",
+      case: pick(/Case Details\s*-\s*(\S+)/),
+      title: pick(/Title\s*:\s*(.*?)\s*Petitioner's Counsels?/i).replace(/-\s+/g, ""),
+      petitioner_counsel: pick(/Petitioner's Counsels?\s*-\s*(.*?)\s*Respondent's Counsel/i),
+      respondent_counsel: pick(/Respondent's Counsels?\s*-\s*(.*)$/i),
+    });
+  }
+  return out;
+}
+
+// ---------- roll-number case search (you solve the court's captcha) ----------
+function cookiesFrom(res) {
+  const all = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get("Set-Cookie") || ""];
+  return all.map(c => c.split(";")[0]).filter(Boolean).join("; ");
+}
+
+async function rollStart(cors) {
+  const page = await fetch(HC + "advocate-cases-roll-wise", { headers: { "User-Agent": UA } });
+  const cookie = cookiesFrom(page);
+  const html = await page.text();
+  const captchaId = html.match(/name="captcha_id" value="([^"]+)"/)?.[1];
+  if (!captchaId) return json({ error: "The court page has changed. Open it directly for now." }, 502, cors);
+  const img = await fetch(HC + "secureimage/securimage?captcha_id=" + captchaId, {
+    headers: { "User-Agent": UA, Cookie: cookie, Referer: HC + "advocate-cases-roll-wise" },
+  });
+  const cookie2 = [cookie, cookiesFrom(img)].filter(Boolean).join("; ");
+  const buf = new Uint8Array(await img.arrayBuffer());
+  let bin = ""; for (const b of buf) bin += String.fromCharCode(b);
+  const type = img.headers.get("Content-Type") || "image/png";
+  const session = btoa(JSON.stringify({ cookie: cookie2, captchaId }));
+  return json({ session, image: `data:${type};base64,${btoa(bin)}` }, 200, cors);
+}
+
+async function rollSearch(body, cors) {
+  const { session, roll, year, captcha } = body || {};
+  if (!session || !roll || !year || !captcha) return json({ error: "Roll number, year and captcha are all needed." }, 400, cors);
+  if (!/^[A-Z]\/[A-Z]\d{4}\/\d{4}$/i.test(roll)) return json({ error: "Roll number should look like A/X0000/2012." }, 400, cors);
+  const { cookie, captchaId } = JSON.parse(atob(session));
+  const form = new URLSearchParams({ adv_roll: roll.toUpperCase(), case_year: String(year), captcha_id: captchaId, captchacode: String(captcha) });
+  const r = await fetch(HC + "get_ListedCaseRoll", {
+    method: "POST",
+    headers: {
+      "User-Agent": UA, Cookie: cookie, Referer: HC + "advocate-cases-roll-wise",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest",
+    },
+    body: form,
+  });
+  const html = await r.text();
+  return json(parseRollResult(html), 200, cors);
+}
+
+export function parseRollResult(html) {
+  const text = strip(html);
+  if (/captcha/i.test(text) && /(invalid|wrong|not match|incorrect)/i.test(text))
+    return { ok: false, error: "The captcha didn't match. Try the new one." };
+  const tables = [...html.matchAll(/<table[\s\S]*?<\/table>/gi)].map(m => m[0]);
+  const rows = [];
+  let headers = [];
+  for (const t of tables) {
+    for (const tr of t.split(/<tr[\s>]/i).slice(1)) {
+      const ths = [...tr.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)].map(m => strip(m[1]));
+      if (ths.length) { headers = ths; continue; }
+      const tds = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => strip(m[1]));
+      const cino = tr.match(/viewCaseData\(\s*['"]?([^'",)]+)/)?.[1];
+      if (tds.length >= 2) rows.push({ cells: tds, cino });
+    }
+  }
+  return { ok: true, headers, rows, message: rows.length ? "" : text.slice(0, 300) };
+}
