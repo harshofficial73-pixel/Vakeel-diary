@@ -19,8 +19,8 @@
 /* Light, single theme by design. App shell: white top bar, content column (max 820px), bottom tab bar.
    Home groups each day's cases by court, the way an advocate plans the day. */
 :root{
-  --bg:#F3F5F8; --surface:#FFFFFF; --sunk:#F7F8FA; --ink:#0E1A2B; --ink2:#334155; --muted:#64748B; --line:#E3E8EF; --line2:#CBD3DE;
-  --brand:#173B6C; --brand-ink:#FFFFFF; --brand-soft:#EAF0F8;
+  --bg:#F4F5F7; --surface:#FFFFFF; --sunk:#F8F9FA; --ink:#111827; --ink2:#374151; --muted:#6B7280; --line:#E5E7EB; --line2:#D1D5DB;
+  --brand:#1F3B63; --brand-ink:#FFFFFF; --brand-soft:#EEF2F7;
   --ok:#0B7A53; --ok-soft:#E4F4EC; --warn:#9A5800; --warn-soft:#FCF0DC; --bad:#B42318; --bad-soft:#FDECEA; --live:#1D5FD1; --live-soft:#E6EEFC;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
   --r:12px; --shadow:0 1px 2px rgba(14,26,43,.05);
@@ -28,11 +28,11 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased;padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased;padding-top:env(safe-area-inset-top,0px)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
 button,input,textarea,select{font:inherit;color:inherit}
 a{color:var(--brand)}
-.wrap{max-width:820px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 [hidden]{display:none!important}
 
@@ -157,6 +157,50 @@ table.res{border-collapse:collapse;font-size:13px;width:100%;min-width:520px}
 table.res th,table.res td{padding:8px 10px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
 table.res th{background:var(--sunk);font-weight:600;border-top:0}
 
+/* ---- listing v2 ---- */
+.court{border-radius:14px}
+.court-h{display:block;padding:12px 16px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
+.court-h .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.court-h .n{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.court-h .j{font-size:13.5px;color:var(--ink2);margin-top:1px}
+.court-h .tot{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12.5px;color:var(--muted);margin-top:6px}
+.court-h .tot b{color:var(--ink2);font-weight:600}
+.sec-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 16px;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--sunk);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sec-h span{font-weight:500;letter-spacing:0;text-transform:none}
+.court-h + .sec-h{border-top:0}
+.item{display:grid;grid-template-columns:48px minmax(0,1fr) 16px;gap:12px;align-items:start;padding:14px 16px;border:0;border-top:1px solid var(--line);background:none;width:100%;text-align:left;cursor:pointer}
+.sec-h + .item{border-top:0}
+.item:active,.item:hover{background:var(--sunk)}
+.item .no{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;color:var(--ink);text-align:right}
+.item .no small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.item .no.reached{color:var(--ok)}
+.item .body{min-width:0}
+.item .pt{font-size:15.5px;font-weight:600;line-height:1.35;color:var(--ink);overflow-wrap:anywhere}
+.item .sub{font-size:13.5px;color:var(--ink2);margin-top:4px;line-height:1.45;overflow-wrap:anywhere}
+.item .sub .mono{font-size:12.5px;font-weight:600;color:var(--brand)}
+.item .flag{display:block;margin-top:6px;font-size:12.5px;font-weight:600;color:var(--ok)}
+.item .flag.warn{color:var(--warn)}
+.item .chev{color:var(--line2);padding-top:4px}
+.listing{display:block}
+@media (min-width:900px){ .listing{column-count:2;column-gap:16px} .listing .court{break-inside:avoid;display:inline-block;width:100%} }
+
+/* ---- board v2: cards, nothing cut off ---- */
+.bgrid{display:grid;grid-template-columns:1fr;gap:10px;align-items:start}
+@media (min-width:640px){ .bgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (min-width:1024px){ .bgrid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+.bcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.bcard .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.bcard .ct{font-size:15px;font-weight:700}
+.bcard .now{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.bcard .now b{font-size:26px;color:var(--brand);letter-spacing:0;margin-left:6px;font-variant-numeric:tabular-nums}
+.bcard .case{font:600 13px var(--mono);color:var(--brand);overflow-wrap:anywhere}
+.bcard .title{font-size:14px;color:var(--ink);line-height:1.4;overflow-wrap:anywhere}
+.bcard .meta{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.bcard .mine{font-size:13px;font-weight:600;color:var(--live)}
+.bcard.is-mine{border-color:var(--live);box-shadow:inset 0 0 0 1px var(--live)}
+.bcard.off{background:transparent;border-style:dashed;padding:10px 14px}
+.bcard.off .ct{color:var(--ink2)}
+
 /* tab bar */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;justify-content:center;
   padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
@@ -210,7 +254,8 @@ const S = {
   roll: { no: LS("roll") || "", year: LS("rollyear") || "", cap: "", session: null, image: null, msg: "", msgKind: "", busy: false },
   courtCases: JGET("courtcases", {}),       // from "Sync from court": {CASE: {cells, headers, cino, source}}
   liveOrders: {}, details: JGET("details", {}),
-  notes: JGET("notes", {}),
+  notes: Object.fromEntries(Object.entries(JGET("notes", {})).map(([k, v]) => [k, typeof v === "string" ? { t: v, at: 0 } : v])),
+  synced: null,
 };
 const relayUrl = p => S.relay.replace(/\/+$/, "") + p;
 
@@ -253,6 +298,54 @@ async function load(pass) {
   const box = await r.json();
   try { return await openVault(box, pass); } catch (e) { throw { code: "pass" }; }
 }
+
+/* ---------- sync across devices (encrypted on this device, stored in your relay) ---------- */
+const noteOf = k => S.notes[k]?.t || "";
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+const b64e = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+let store = null;   // { id, key }
+async function storeInit(pass) {
+  const id = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("vakeel-store|" + pass)));
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode("vakeel-store-salt|" + id), iterations: 120000 },
+    base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  store = { id, key };
+}
+function localData() {
+  const details = Object.fromEntries(Object.entries(S.details).filter(([, v]) => v?.ok));
+  return { courtCases: S.courtCases, notes: S.notes, details, advname: LS("advname") || "", roll: LS("roll") || "" };
+}
+function mergeIn(r) {
+  if (!r) return;
+  S.courtCases = { ...(r.courtCases || {}), ...S.courtCases };
+  for (const [k, v] of Object.entries(r.notes || {})) if (!S.notes[k] || (v.at || 0) > (S.notes[k].at || 0)) S.notes[k] = v;
+  for (const [k, v] of Object.entries(r.details || {})) if (!S.details[k]?.ok) S.details[k] = v;
+  if (!LS("advname") && r.advname) SET("advname", r.advname);
+  if (!LS("roll") && r.roll) { SET("roll", r.roll); S.roll.no = r.roll; }
+  SET("courtcases", JSON.stringify(S.courtCases)); SET("notes", JSON.stringify(S.notes));
+  SET("details", JSON.stringify(Object.fromEntries(Object.entries(S.details).filter(([, v]) => v?.ok))));
+}
+let syncing = null, pushTimer = null;
+async function syncNow() {
+  if (!store || !S.relay) return;
+  if (syncing) return syncing;
+  syncing = (async () => {
+    try {
+      const g = await fetch(relayUrl("/store/" + store.id), { cache: "no-store" });
+      if (g.status === 501) { S.synced = { off: true }; return; }
+      if (g.ok) { const box = await g.json(); try { mergeIn(JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(box.iv) }, store.key, b64(box.data))))); } catch (e) {} }
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, store.key, new TextEncoder().encode(JSON.stringify(localData())));
+      const p = await fetch(relayUrl("/store/" + store.id), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ iv: b64e(iv), data: b64e(data) }) });
+      S.synced = p.ok ? { at: Date.now() } : { err: true };
+    } catch (e) { S.synced = { err: true }; }
+    finally { syncing = null; }
+    const typing = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName);
+    if (!typing) render();
+  })();
+  return syncing;
+}
+function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(syncNow, 1500); }
 
 /* ---------- derived data ---------- */
 function days() {
@@ -351,12 +444,13 @@ function lockView() {
 function itemRow(h, date) {
   const live = diff(date) === 0 ? boardFor(h.court) : null;
   const reached = live?.in_session && parseFloat(live.serial) >= parseFloat(h.sr);
+  const sub = [`<span class="mono">${esc(h.case)}</span>`, h.application ? `Appl. ${esc(h.application)}` : "", `For ${esc(h.side)}`,
+    h.list?.includes(" — ") ? esc(tc(h.list.split(" — ").pop())) : "", h.connected_with ? `with item ${esc(h.connected_with)}` : ""].filter(Boolean).join(" · ");
   return `<button class="item" data-case="${esc(h.case)}">
-    <div class="sr${reached ? " reached" : ""}"><small>Item</small><b>${esc(h.sr)}</b></div>
-    <div class="it-main"><span class="cno">${esc(h.case)}</span>${h.application ? `<span class="meta">Application ${esc(h.application)}</span>` : ""}
-      <span class="parties">${esc(tc(h.parties))}</span>
-      <div class="chips"><span class="chip">For ${esc(h.side)}</span>${h.list?.includes(" — ") ? `<span class="chip mute">${esc(tc(h.list.split(" — ").pop()))}</span>` : ""}${h.list_type && h.list_type !== "Combined Cause List" ? `<span class="chip warn">${esc(h.list_type)}</span>` : ""}${h.connected_with ? `<span class="chip mute">With item ${esc(h.connected_with)}</span>` : ""}${reached ? `<span class="chip ok">Court has reached this item</span>` : ""}</div>
-    </div><span class="chev">${icon.chev}</span></button>`;
+    <div class="no${reached ? " reached" : ""}"><small>Item</small>${esc(h.sr)}</div>
+    <div class="body"><div class="pt">${esc(tc(h.parties))}</div><div class="sub">${sub}</div>
+      ${h.list_type && h.list_type !== "Combined Cause List" ? `<div class="flag warn">${esc(h.list_type)}</div>` : ""}${reached ? `<div class="flag">Court has reached this item</div>` : ""}</div>
+    <span class="chev">${icon.chev}</span></button>`;
 }
 
 function homeView() {
@@ -371,17 +465,18 @@ function homeView() {
   if (errs.length) h += `<div class="notice" style="margin-top:14px">The last check hit a problem (${esc(errs[0])}). It retries at the next scheduled time.</div>`;
   if (!ds.length) h += `<div class="empty" style="margin-top:18px">None of your cases are in the lists published so far. The High Court usually publishes the next day's list in the evening; this checks at 7:00 pm, 9:30 pm and 7:00 am.</div>`;
   for (const d of shown) {
-    h += `<section class="day"><div class="day-h"><div class="t">${esc(rel(d.date))}<small>${esc(full(d.date))} · ${d.hits.length} case${d.hits.length === 1 ? "" : "s"}</small></div>
+    h += `<section class="day"><div class="day-h"><div class="t">${esc(diff(d.date) <= 2 ? rel(d.date) : full(d.date))}<small>${diff(d.date) <= 2 ? esc(full(d.date)) + " · " : ""}${d.hits.length} case${d.hits.length === 1 ? "" : "s"}</small></div>
       <div class="btns"><button class="btn sm primary" data-pdf-day="${d.date}">${icon.doc}Share PDF</button><button class="btn sm" data-share-day="${d.date}">${icon.share}Text</button><button class="btn sm" data-ics-day="${d.date}">${icon.cal}Calendar</button></div></div>`;
+    h += `<div class="listing">`;
     for (const g of byCourt(d.hits)) {
       const live = diff(d.date) === 0 ? boardFor(g.court) : null;
       const now = live ? (live.in_session ? `<span class="now">Now at item ${esc(live.serial)}</span>` : `<span class="now off">Not in session</span>`) : "";
       const tot = courtSections(d.date, g.court);
-      h += `<div class="court"><div class="court-h"><div><div class="n">${esc(courtLabel(g.court))}</div><div class="j">${esc(judgeNames(g.judges))}</div>
-        ${tot.length ? `<div class="tot">${tot.map(x => `<span><b>${esc(sectionName(x.section))}</b> ${x.count} · ${esc(rangeText(x))}</span>`).join("")}</div>` : ""}</div>${now}</div>
+      h += `<div class="court"><div class="court-h"><div class="top"><span class="n">${esc(courtLabel(g.court))}</span>${now}</div><div class="j">${esc(judgeNames(g.judges))}</div>
+        ${tot.length ? `<div class="tot">${tot.map(x => `<span><b>${esc(sectionName(x.section))}</b> ${x.count} (${esc(rangeText(x).replace("items ", "").replace("item ", ""))})</span>`).join("")}</div>` : ""}</div>
         ${bySection(g.list).map(([sec, items]) => `<div class="sec-h">${esc(sectionName(sec))}<span>${items.length} of yours</span></div>${items.map(x => itemRow(x, d.date)).join("")}`).join("")}</div>`;
     }
-    h += `</section>`;
+    h += `</div></section>`;
   }
   const checked = Object.values(S.vault.listings || {}).filter(v => diff(v.date) >= 0).map(v => `${nice(v.date)} (${v.list === "Z" ? "combined" : v.list === "U" ? "additional" : "supplementary"})`);
   if (checked.length) h += `<p class="meta" style="margin-top:20px">Lists checked: ${esc(checked.join(", "))}.</p>`;
@@ -394,14 +489,14 @@ function casesView() {
   if (S.casesFilter === "upcoming") list = list.filter(c => c.next);
   if (S.casesFilter === "orders") list = list.filter(c => c.orders?.length);
   if (S.casesFilter === "court") list = list.filter(c => c.src !== "list");
-  if (q) list = list.filter(c => [c.case, c.parties, c.petitioner_counsel, c.respondent_counsel, S.notes[c.case], ...(c.court?.cells || [])].join(" ").toUpperCase().includes(q));
+  if (q) list = list.filter(c => [c.case, c.parties, c.petitioner_counsel, c.respondent_counsel, noteOf(c.case), ...(c.court?.cells || [])].join(" ").toUpperCase().includes(q));
   list.sort((a, b) => (a.next ? 0 : 1) - (b.next ? 0 : 1) || (a.next && b.next ? pd(a.next.date) - pd(b.next.date) : 0) || (b.last ? pd(b.last) : 0) - (a.last ? pd(a.last) : 0) || a.case.localeCompare(b.case));
   const seg = (k, l) => `<button data-cf="${k}" aria-pressed="${S.casesFilter === k}">${l}</button>`;
   return `<div class="page-h"><div><h1>Cases</h1><div class="sub">${list.length} case${list.length === 1 ? "" : "s"}</div></div><button class="btn sm" id="exportCsv">${icon.doc}Export</button></div>
     <div class="toolbar"><input id="cq" type="search" placeholder="Search case no., party, counsel or note" value="${esc(S.casesQ)}" autocomplete="off">
       <div class="seg">${seg("all", "All")}${seg("upcoming", "Listed")}${seg("orders", "With orders")}${seg("court", "From court sync")}</div></div>
     ${list.length ? `<div class="rows">${list.map(c => `<button class="row" data-case="${esc(c.case)}"><div class="it-main"><span class="cno">${esc(c.case)}</span><span class="parties">${esc(tc(c.parties) || (c.court?.cells || []).slice(1, 3).join(" · "))}</span>
-      <div class="chips">${c.side ? `<span class="chip">For ${esc(c.side)}</span>` : ""}${c.orders?.length ? `<span class="chip mute">${c.orders.length} order${c.orders.length === 1 ? "" : "s"}</span>` : ""}${c.new_orders ? `<span class="chip ok">New order</span>` : ""}${c.src !== "list" ? `<span class="chip mute">Court sync</span>` : ""}${S.notes[c.case] ? `<span class="chip mute">Note</span>` : ""}</div></div>
+      <div class="chips">${c.side ? `<span class="chip">For ${esc(c.side)}</span>` : ""}${c.orders?.length ? `<span class="chip mute">${c.orders.length} order${c.orders.length === 1 ? "" : "s"}</span>` : ""}${c.new_orders ? `<span class="chip ok">New order</span>` : ""}${c.src !== "list" ? `<span class="chip mute">Court sync</span>` : ""}${noteOf(c.case) ? `<span class="chip mute">Note</span>` : ""}</div></div>
       <div class="r">${c.next ? `<b>${esc(rel(c.next.date))}</b>Court ${esc(c.next.court)} · ${esc(c.next.sr)}` : c.last ? `Last listed<b>${esc(nice(c.last))}</b>` : ""}</div></button>`).join("")}</div>`
       : `<div class="empty">${q ? "No case matches that search." : "Cases appear here as soon as they show up in a cause list. You can also pull every case from the court under More → Sync from court."}</div>`}`;
 }
@@ -449,7 +544,7 @@ function caseView(id) {
       : `<div class="btns"><button class="btn" data-details="${esc(id)}"${det?.loading ? " disabled" : ""}>${det?.loading ? "Loading from court…" : "Load full details"}</button>${det?.error ? `<span class="meta">${esc(det.error)}</span>` : ""}</div>`) : ""}</div>` : ""}
 
   <h2 class="sec">Notes</h2>
-  <div class="card"><textarea id="note" data-note="${esc(id)}" placeholder="Points to argue, documents pending, client calls… Saved on this device.">${esc(S.notes[id] || "")}</textarea></div>`;
+  <div class="card"><textarea id="note" data-note="${esc(id)}" placeholder="Points to argue, documents pending, client calls… Syncs to your other devices.">${esc(noteOf(id))}</textarea></div>`;
 }
 
 function boardView() {
@@ -467,10 +562,13 @@ function boardView() {
   return `<div class="page-h"><div><h1>Display board</h1><div class="sub">Allahabad · Court View${updated ? " · updated " + esc(updated) : ""}</div></div><button class="btn sm" id="boardRefresh">${icon.refresh}Refresh</button></div>
     <div class="toolbar"><div class="seg">${seg("mine", "My courts today")}${seg("session", "In session")}${seg("all", "All courts")}</div><input id="bq" type="search" placeholder="Court, case or counsel" value="${esc(S.boardQ)}" autocomplete="off"></div>
     ${S.boardErr ? `<div class="notice bad" style="margin-bottom:12px">${esc(S.boardErr)}</div>` : ""}
-    ${rows.length ? `<div class="rows">${rows.map(r => { const m = mine.get(normCourt(r.court));
-      return r.in_session ? `<div class="brow${m ? " mine" : ""}"><div class="ct">${esc(r.court)}</div><div class="sn"><b>${esc(r.serial)}</b><small>Item</small></div>
-        <div class="d"><div class="t"><span class="cno">${esc(r.case)}</span> · ${esc(tc(r.title))}</div><div class="m">${m ? `<b style="color:var(--live)">Your items: ${esc(m.join(", "))}</b> · ` : ""}${esc(r.list)}${r.progress ? " · " + esc(r.progress) : ""}${r.info ? " · " + esc(r.info) : ""}</div></div></div>`
-      : `<div class="brow off"><div class="ct">${esc(r.court)}</div><div></div><div class="d"><div class="m">Not in session${r.info ? " · " + esc(r.info) : ""}${m ? ` · your items ${esc(m.join(", "))}` : ""}</div></div></div>`; }).join("")}</div>`
+    ${rows.length ? `<div class="bgrid">${rows.map(r => { const m = mine.get(normCourt(r.court));
+      const label = /^C\.?J\.?$/i.test(r.court) ? "Chief Justice's Court" : `Court ${esc(r.court)}`;
+      return r.in_session ? `<div class="bcard${m ? " is-mine" : ""}"><div class="top"><span class="ct">${label}</span><span class="now">Now at<b>${esc(r.serial)}</b></span></div>
+        ${r.case ? `<div class="case">${esc(r.case)}</div>` : ""}${r.title ? `<div class="title">${esc(tc(r.title))}</div>` : ""}
+        <div class="meta">${[esc(r.list), esc(r.progress), esc(r.info)].filter(Boolean).join(" · ")}</div>
+        ${m ? `<div class="mine">Your items here today: ${esc(m.join(", "))}</div>` : ""}</div>`
+      : `<div class="bcard off"><div class="top"><span class="ct">${label}</span><span class="meta">Not in session</span></div>${r.info ? `<div class="meta">${esc(r.info)}</div>` : ""}${m ? `<div class="mine">Your items here today: ${esc(m.join(", "))}</div>` : ""}</div>`; }).join("")}</div>`
       : `<div class="empty">${S.board ? (S.boardFilter === "mine" ? "None of your courts today are on the board. Switch to All courts to see everything." : "No courts match.") : "Loading the board…"}</div>`}
     <p class="meta" style="margin-top:12px">Refreshes every 30 seconds. As the court notes, confirm the exact status physically at the court.</p>`;
 }
@@ -496,7 +594,8 @@ function moreView() {
   <form id="settings" class="card">
     <label class="f">Your name on shared lists<input id="advName" placeholder="Adv. Harsh …" value="${esc(LS("advname") || "")}" autocomplete="name"></label>
     <label class="f">Relay address (Cloudflare Worker)<input id="relay" type="url" inputmode="url" placeholder="https://vakeel-relay.yourname.workers.dev" value="${esc(S.relay)}"></label>
-    <div class="btns"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" id="lockBtn">Lock this device</button></div>
+    <div class="btns"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" id="syncBtn">${icon.refresh}Sync now</button><button class="btn" type="button" id="lockBtn">Lock this device</button></div>
+    <div class="meta">${S.synced?.at ? `Synced across your devices ${esc(ago(new Date(S.synced.at).toISOString()))}. Court-synced cases, notes and your name appear on every device you unlock.` : S.synced?.off ? "Sync storage isn't set up on the relay yet." : S.synced?.err ? "Couldn't sync just now. It retries when you reopen the app." : "Syncing…"}</div>
   </form>
 
   <h2 class="sec">Automatic checks</h2>
@@ -540,7 +639,7 @@ async function rollSearch() {
       }
       SET("courtcases", JSON.stringify(S.courtCases));
       R.msg = j.rows.length ? `${j.rows.length} cases found for ${R.year}${added ? `, ${added} new` : ""}. They're in your Cases tab. Pick another year to continue.` : (j.message || `The court returned no cases for ${R.year}.`);
-      R.msgKind = j.rows.length ? "ok" : ""; R.image = null; R.lastSession = R.session;
+      R.msgKind = j.rows.length ? "ok" : ""; R.image = null; R.lastSession = R.session; schedulePush();
     }
   } catch (e) { R.msg = "Couldn't reach the court site through the relay."; R.msgKind = "bad"; }
   R.busy = false; R.cap = ""; render();
@@ -550,7 +649,7 @@ async function loadDetails(id) {
   S.details[id] = { loading: true }; render();
   try { const r = await fetch(relayUrl("/roll/case"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session, cino: c.cino, source: c.source }) });
     const j = await r.json(); S.details[id] = j.ok ? { ...j, at: Date.now() } : { error: j.error };
-    if (j.ok) { const all = JGET("details", {}); all[id] = S.details[id]; SET("details", JSON.stringify(all)); } }
+    if (j.ok) { const all = JGET("details", {}); all[id] = S.details[id]; SET("details", JSON.stringify(all)); schedulePush(); } }
   catch (e) { S.details[id] = { error: "Couldn't reach the court site." }; }
   render();
 }
@@ -662,10 +761,11 @@ document.addEventListener("click", async e => {
   if (b.id === "rollNew") return rollStart();
   if (b.id === "rollGo") return rollSearch();
   if (b.id === "boardRefresh") { fetchBoard(); toast("Refreshing…"); return; }
-  if (b.id === "lockBtn") { SET("pass", null); S.vault = null; render(); return; }
+  if (b.id === "lockBtn") { SET("pass", null); S.vault = null; store = null; render(); return; }
+  if (b.id === "syncBtn") { await syncNow(); toast(S.synced?.at ? "Synced" : S.synced?.off ? "Sync storage isn't set up on the relay yet." : "Couldn't sync. Check your connection."); return; }
   if (b.id === "reload") { const p = LS("pass"); try { S.vault = await load(p); toast("Results reloaded"); } catch (_) { toast("Couldn't reload. Check your connection."); } render(); return; }
   if (b.id === "exportCsv") {
-    const rows = [["Case", "Parties", "Side", "Next date", "Court", "Item", "Last listed", "Orders", "Note"]].concat(allCases().map(c => [c.case, tc(c.parties), c.side || "", c.next?.date || "", c.next?.court || "", c.next?.sr || "", c.last, c.orders?.length || 0, S.notes[c.case] || ""]));
+    const rows = [["Case", "Parties", "Side", "Next date", "Court", "Item", "Last listed", "Orders", "Note"]].concat(allCases().map(c => [c.case, tc(c.parties), c.side || "", c.next?.date || "", c.next?.court || "", c.next?.sr || "", c.last, c.orders?.length || 0, noteOf(c.case)]));
     const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })); a.download = "vakeel-diary-cases.csv"; document.body.appendChild(a); a.click(); a.remove(); return;
   }
@@ -673,7 +773,7 @@ document.addEventListener("click", async e => {
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.id === "rollNo") S.roll.no = t.value; else if (t.id === "rollYear") S.roll.year = t.value; else if (t.id === "rollCap") S.roll.cap = t.value;
-  else if (t.dataset.note) { S.notes[t.dataset.note] = t.value; if (!t.value) delete S.notes[t.dataset.note]; SET("notes", JSON.stringify(S.notes)); }
+  else if (t.dataset.note) { S.notes[t.dataset.note] = { t: t.value, at: Date.now() }; SET("notes", JSON.stringify(S.notes)); schedulePush(); }
   else if (t.id === "bq" || t.id === "cq") { if (t.id === "bq") S.boardQ = t.value; else S.casesQ = t.value; const p = t.selectionStart; render(); const n = document.getElementById(t.id); n.focus(); n.setSelectionRange(p, p); }
 });
 document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "rollCap") { e.preventDefault(); rollSearch(); } });
@@ -682,19 +782,21 @@ document.addEventListener("submit", async e => {
   if (e.target.id === "unlock") {
     const pass = document.getElementById("pass").value, btn = e.target.querySelector("button");
     btn.disabled = true; btn.textContent = "Unlocking…";
-    try { S.vault = await load(pass); SET("pass", pass); render(); fetchBoard(); preloadPdf().catch(() => {}); }
+    try { S.vault = await load(pass); SET("pass", pass); render(); fetchBoard(); preloadPdf().catch(() => {}); storeInit(pass).then(syncNow); }
     catch (err) { btn.disabled = false; btn.textContent = "Unlock";
       document.getElementById("lockErr").innerHTML = `<div class="notice bad">${err.code === "pass" ? "That passphrase doesn't match the one saved in GitHub." : err.code === "none" ? "No results yet. Run “Check cause list” once on GitHub, then try again." : "Couldn't download your results. Check your connection."}</div>`; }
   }
-  if (e.target.id === "settings") { S.relay = document.getElementById("relay").value.trim(); SET("relay", S.relay || null); SET("advname", document.getElementById("advName").value.trim() || null); toast("Saved"); fetchBoard(); render(); }
+  if (e.target.id === "settings") { S.relay = document.getElementById("relay").value.trim(); SET("relay", S.relay || null); SET("advname", document.getElementById("advName").value.trim() || null); schedulePush(); toast("Saved"); fetchBoard(); render(); }
 });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncNow(); });
 addEventListener("popstate", () => { if (S.caseId) { S.caseId = null; render(); } });
 
 /* ---------- start ---------- */
 (async () => {
   render();
+  if (!S.relay) { try { const r = await fetch("relay.json", { cache: "no-store" }); if (r.ok) { S.relay = (await r.json()).relay || ""; if (S.relay) SET("relay", S.relay); } } catch (e) {} }
   const pass = LS("pass");
-  if (pass) { try { S.vault = await load(pass); } catch (e) { if (e.code === "pass") SET("pass", null); } render(); }
+  if (pass) { try { S.vault = await load(pass); } catch (e) { if (e.code === "pass") SET("pass", null); } render(); if (S.vault) storeInit(pass).then(syncNow); }
   fetchBoard();
   setTimeout(() => { if (S.vault) preloadPdf().catch(() => {}); }, 1500);
   setInterval(() => { if (document.visibilityState === "visible" && ["home", "board"].includes(S.tab) && !S.caseId) fetchBoard(); }, 30000);
