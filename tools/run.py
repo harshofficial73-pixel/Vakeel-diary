@@ -104,11 +104,14 @@ def main():
                 if not pdf:
                     log["checked"].append({"date": d, "list": lt, "status": "not published"}); continue
                 fp = hashlib.sha1(pdf).hexdigest()[:12]
-                entries = cl.parse(pdf)
+                parsed = cl.parse_full(pdf)
+                entries = parsed["entries"]
                 hits = cl.match(entries, names)
                 for h in hits:
                     h["list_type"] = cl.LIST_TYPES.get(lt, lt)
-                state["listings"][key] = {"date": d, "list": lt, "fingerprint": fp, "entries": len(entries), "hits": hits}
+                my_courts = {h["court"] for h in hits}
+                state["listings"][key] = {"date": d, "list": lt, "fingerprint": fp, "entries": len(entries), "hits": hits,
+                                          "sections": {c: v for c, v in parsed["sections"].items() if c in my_courts}}
                 log["checked"].append({"date": d, "list": lt, "entries": len(entries), "hits": len(hits)})
                 print(f"{d} {lt}: {len(entries)} entries, {len(hits)} yours")
             except Exception as e:

@@ -68,10 +68,15 @@ h2.sec{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:upperc
 .court-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .court-h .n{font-weight:700;font-size:15px}
 .court-h .j{font-size:12.5px;color:var(--muted)}
+.court-h .tot{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:4px}
+.court-h .tot b{font-weight:600;color:var(--ink2)}
+.sec-h{display:flex;justify-content:space-between;gap:8px;padding:7px 14px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);border-top:1px solid var(--line);background:#FBFCFD}
+.sec-h span{font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted)}
+.court .sec-h:first-of-type{border-top:0}
 .court-h .now{font-size:12.5px;font-weight:600;color:var(--live);background:var(--live-soft);padding:3px 9px;border-radius:99px;white-space:nowrap}
 .court-h .now.off{color:var(--muted);background:transparent;border:1px solid var(--line)}
 .item{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 14px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;cursor:pointer}
-.court .item:first-of-type{border-top:0}
+
 .item:hover{background:var(--sunk)}
 .sr{border:1px solid var(--line2);border-radius:8px;text-align:center;padding:4px 0 5px;line-height:1.1}
 .sr small{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
@@ -259,6 +264,19 @@ function days() {
   }
   return Object.keys(by).sort((a, b) => pd(a) - pd(b)).map(date => ({ date, hits: by[date] }));
 }
+const SECTION_ORDER = ["FRESH LIST", "DAILY CAUSE LIST", "FRESH MISC. APPLICATION"];
+const sectionOf = h => (h.list || "").split(" — ")[0] || "OTHER";
+const sectionName = s => ({ "FRESH LIST": "Fresh list", "DAILY CAUSE LIST": "Daily cause list", "FRESH MISC. APPLICATION": "Applications" }[s] || tc(s));
+function courtSections(date, court) {
+  for (const v of Object.values(S.vault?.listings || {})) if (v.date === date && v.sections?.[court]) return v.sections[court];
+  return [];
+}
+const rangeText = x => x.first == null ? "" : x.first === x.last ? `item ${x.first}` : `items ${x.first}–${x.last}`;
+function bySection(list) {
+  const g = {};
+  for (const h of list) (g[sectionOf(h)] ||= []).push(h);
+  return Object.entries(g).sort((a, b) => (SECTION_ORDER.indexOf(a[0]) + 1 || 9) - (SECTION_ORDER.indexOf(b[0]) + 1 || 9) || parseFloat(a[1][0].sr) - parseFloat(b[1][0].sr));
+}
 function byCourt(hits) {
   const g = {};
   for (const h of hits) (g[h.court] ||= []).push(h);
@@ -337,7 +355,7 @@ function itemRow(h, date) {
     <div class="sr${reached ? " reached" : ""}"><small>Item</small><b>${esc(h.sr)}</b></div>
     <div class="it-main"><span class="cno">${esc(h.case)}</span>${h.application ? `<span class="meta">Application ${esc(h.application)}</span>` : ""}
       <span class="parties">${esc(tc(h.parties))}</span>
-      <div class="chips"><span class="chip">For ${esc(h.side)}</span>${h.list ? `<span class="chip mute">${esc(tc(h.list.split(" — ").pop()))}</span>` : ""}${h.list_type && h.list_type !== "Combined Cause List" ? `<span class="chip warn">${esc(h.list_type)}</span>` : ""}${h.connected_with ? `<span class="chip mute">With item ${esc(h.connected_with)}</span>` : ""}${reached ? `<span class="chip ok">Court has reached this item</span>` : ""}</div>
+      <div class="chips"><span class="chip">For ${esc(h.side)}</span>${h.list?.includes(" — ") ? `<span class="chip mute">${esc(tc(h.list.split(" — ").pop()))}</span>` : ""}${h.list_type && h.list_type !== "Combined Cause List" ? `<span class="chip warn">${esc(h.list_type)}</span>` : ""}${h.connected_with ? `<span class="chip mute">With item ${esc(h.connected_with)}</span>` : ""}${reached ? `<span class="chip ok">Court has reached this item</span>` : ""}</div>
     </div><span class="chev">${icon.chev}</span></button>`;
 }
 
@@ -358,7 +376,10 @@ function homeView() {
     for (const g of byCourt(d.hits)) {
       const live = diff(d.date) === 0 ? boardFor(g.court) : null;
       const now = live ? (live.in_session ? `<span class="now">Now at item ${esc(live.serial)}</span>` : `<span class="now off">Not in session</span>`) : "";
-      h += `<div class="court"><div class="court-h"><div><div class="n">${esc(courtLabel(g.court))}</div><div class="j">${esc(judgeNames(g.judges))}</div></div>${now}</div>${g.list.map(x => itemRow(x, d.date)).join("")}</div>`;
+      const tot = courtSections(d.date, g.court);
+      h += `<div class="court"><div class="court-h"><div><div class="n">${esc(courtLabel(g.court))}</div><div class="j">${esc(judgeNames(g.judges))}</div>
+        ${tot.length ? `<div class="tot">${tot.map(x => `<span><b>${esc(sectionName(x.section))}</b> ${x.count} · ${esc(rangeText(x))}</span>`).join("")}</div>` : ""}</div>${now}</div>
+        ${bySection(g.list).map(([sec, items]) => `<div class="sec-h">${esc(sectionName(sec))}<span>${items.length} of yours</span></div>${items.map(x => itemRow(x, d.date)).join("")}`).join("")}</div>`;
     }
     h += `</section>`;
   }
@@ -554,13 +575,21 @@ function buildPdf(date) {
   let n = 0;
   for (const g of byCourt(day.hits)) {
     body.push([{ content: `${courtLabel(g.court)}${g.judges?.length ? "   —   " + judgeNames(g.judges) : ""}`, colSpan: 6,
-      styles: { fillColor: [234, 240, 248], textColor: navy, fontStyle: "bold", fontSize: 9.5, halign: "left" } }]);
-    for (const h of g.list) body.push([String(++n), h.sr, h.case + (h.application ? `\nAppl. ${h.application}` : ""), tc(h.parties),
-      h.side === "petitioner" ? "Petitioner" : "Respondent", tc((h.list || "").split(" — ").pop()) + (h.list_type && h.list_type !== "Combined Cause List" ? `\n(${h.list_type})` : "")]);
+      styles: { fillColor: navy, textColor: 255, fontStyle: "bold", fontSize: 10, halign: "left", cellPadding: { top: 7, bottom: 7, left: 6, right: 6 } } }]);
+    const tot = courtSections(date, g.court);
+    if (tot.length) body.push([{ content: "Total in this court:   " + tot.map(x => `${sectionName(x.section)} ${x.count} (${rangeText(x)})`).join("     ·     "), colSpan: 6,
+      styles: { fillColor: [247, 248, 250], textColor: [51, 65, 85], fontSize: 8.5, halign: "left" } }]);
+    for (const [sec, items] of bySection(g.list)) {
+      body.push([{ content: `${sectionName(sec).toUpperCase()}   ·   ${items.length} of your case${items.length === 1 ? "" : "s"}`, colSpan: 6,
+        styles: { fillColor: [234, 240, 248], textColor: navy, fontStyle: "bold", fontSize: 8.5, halign: "left" } }]);
+      for (const h of items) body.push([String(++n), h.sr, h.case + (h.application ? `\nAppl. ${h.application}` : ""), tc(h.parties),
+        h.side === "petitioner" ? "Petitioner" : "Respondent",
+        (h.list?.includes(" — ") ? tc(h.list.split(" — ").pop()) : "") + (h.list_type && h.list_type !== "Combined Cause List" ? `\n(${h.list_type})` : "")]);
+    }
   }
   doc.autoTable({
     startY: 80, margin: { left: M, right: M },
-    head: [["#", "Item", "Case No.", "Parties", "For", "List"]], body,
+    head: [["#", "Item", "Case No.", "Parties", "For", "Listed for"]], body,
     styles: { font: "helvetica", fontSize: 8.5, cellPadding: 5, textColor: [14, 26, 43], lineColor: [227, 232, 239], lineWidth: 0.5, valign: "top" },
     headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", fontSize: 8.5 },
     columnStyles: { 0: { cellWidth: 22, halign: "right", textColor: grey }, 1: { cellWidth: 36, halign: "center", fontStyle: "bold" }, 2: { cellWidth: 96, font: "courier", fontStyle: "bold" }, 4: { cellWidth: 62 }, 5: { cellWidth: 92, textColor: grey } },

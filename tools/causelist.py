@@ -64,6 +64,11 @@ def _text(ws):
 
 
 def parse(pdf_bytes: bytes) -> list[dict]:
+    return parse_full(pdf_bytes)["entries"]
+
+
+def parse_full(pdf_bytes: bytes) -> dict:
+    """Entries plus, for every court, its sections with serial ranges and counts."""
     doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     entries: list[dict] = []
     cols = {"party": 230.0, "pet": 360.0, "resp": 470.0}
@@ -161,7 +166,23 @@ def parse(pdf_bytes: bytes) -> list[dict]:
             if line["resp"]: cur["_respondent_counsel"].append(" ".join(line["resp"]))
 
     close()
-    return entries
+    return {"entries": entries, "sections": summarize(entries)}
+
+
+def summarize(entries: list[dict]) -> dict:
+    """Per court, each main section (Fresh list, Daily cause list, Fresh misc. application) with its
+    serial range and number of matters, worked out from the entries (connected .1/.2 items not counted)."""
+    out: dict[str, dict] = {}
+    for e in entries:
+        top = e["list"].split(" — ")[0] or "LIST"
+        d = out.setdefault(e["court"], {}).setdefault(top, {"section": top, "first": None, "last": None, "count": 0})
+        if "." in e["sr"]:
+            continue
+        n = int(e["sr"])
+        d["count"] += 1
+        d["first"] = n if d["first"] is None else min(d["first"], n)
+        d["last"] = n if d["last"] is None else max(d["last"], n)
+    return {c: sorted(v.values(), key=lambda x: x["first"] or 0) for c, v in out.items()}
 
 
 def norm(s: str) -> str:
