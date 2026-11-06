@@ -570,36 +570,50 @@ function buildPdf(date) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(14, 26, 43);
   doc.text(`Cause list · ${full(date)}`, M, 48);
   doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...grey);
-  doc.text([name, "High Court of Judicature at Allahabad", `${day.hits.length} case${day.hits.length === 1 ? "" : "s"} in ${byCourt(day.hits).length} court${byCourt(day.hits).length === 1 ? "" : "s"}`].filter(Boolean).join("  ·  "), M, 64);
-  const body = [];
-  let n = 0;
-  for (const g of byCourt(day.hits)) {
-    body.push([{ content: `${courtLabel(g.court)}${g.judges?.length ? "   —   " + judgeNames(g.judges) : ""}`, colSpan: 6,
-      styles: { fillColor: navy, textColor: 255, fontStyle: "bold", fontSize: 10, halign: "left", cellPadding: { top: 7, bottom: 7, left: 6, right: 6 } } }]);
-    const tot = courtSections(date, g.court);
-    if (tot.length) body.push([{ content: "Total in this court:   " + tot.map(x => `${sectionName(x.section)} ${x.count} (${rangeText(x)})`).join("     ·     "), colSpan: 6,
-      styles: { fillColor: [247, 248, 250], textColor: [51, 65, 85], fontSize: 8.5, halign: "left" } }]);
-    for (const [sec, items] of bySection(g.list)) {
-      body.push([{ content: `${sectionName(sec).toUpperCase()}   ·   ${items.length} of your case${items.length === 1 ? "" : "s"}`, colSpan: 6,
-        styles: { fillColor: [234, 240, 248], textColor: navy, fontStyle: "bold", fontSize: 8.5, halign: "left" } }]);
-      for (const h of items) body.push([String(++n), h.sr, h.case + (h.application ? `\nAppl. ${h.application}` : ""), tc(h.parties),
+  // sections first (Fresh → Daily cause list → Applications), courts within each section
+  const secs = {};
+  for (const h of day.hits) (secs[sectionOf(h)] ||= []).push(h);
+  const order = Object.keys(secs).sort((a, b) => (SECTION_ORDER.indexOf(a) + 1 || 9) - (SECTION_ORDER.indexOf(b) + 1 || 9));
+  doc.text([name, "High Court of Judicature at Allahabad"].filter(Boolean).join("  ·  "), M, 64);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`${day.hits.length} case${day.hits.length === 1 ? "" : "s"}:  ` + order.map(k => `${sectionName(k)} ${secs[k].length}`).join("   ·   "), M, 79);
+  const H = doc.internal.pageSize.getHeight();
+  const foot = () => {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...grey);
+    doc.text(`Vakeel Diary · from the High Court's published cause list · ${new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`, M, H - 20);
+    doc.text(`Page ${doc.internal.getNumberOfPages()}`, W - M, H - 20, { align: "right" });
+  };
+  let y = 98, n = 0;
+  for (const sec of order) {
+    if (y > H - 140) { doc.addPage(); y = 48; }
+    // section title bar
+    doc.setFillColor(...navy); doc.rect(M, y, W - 2 * M, 26, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 255, 255);
+    doc.text(sectionName(sec).toUpperCase(), M + 10, y + 17);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+    doc.text(`${secs[sec].length} of your case${secs[sec].length === 1 ? "" : "s"}`, W - M - 10, y + 17, { align: "right" });
+    const body = [];
+    for (const g of byCourt(secs[sec])) {
+      const t = courtSections(date, g.court).find(x => x.section === sec);
+      body.push([{ content: `${courtLabel(g.court)}${g.judges?.length ? "  —  " + judgeNames(g.judges) : ""}`, colSpan: 4,
+        styles: { fillColor: [234, 240, 248], textColor: navy, fontStyle: "bold", fontSize: 9, halign: "left" } },
+        { content: t ? `${t.count} in court · ${rangeText(t)}` : "", colSpan: 2,
+        styles: { fillColor: [234, 240, 248], textColor: [51, 65, 85], fontSize: 8, halign: "right", overflow: "visible" } }]);
+      for (const h of g.list) body.push([String(++n), h.sr, h.case + (h.application ? `\nAppl. ${h.application}` : ""), tc(h.parties),
         h.side === "petitioner" ? "Petitioner" : "Respondent",
-        (h.list?.includes(" — ") ? tc(h.list.split(" — ").pop()) : "") + (h.list_type && h.list_type !== "Combined Cause List" ? `\n(${h.list_type})` : "")]);
+        (h.list?.includes(" — ") ? tc(h.list.split(" — ").pop()) : "—") + (h.list_type && h.list_type !== "Combined Cause List" ? `\n(${h.list_type})` : "")]);
     }
+    doc.autoTable({
+      startY: y + 26, margin: { left: M, right: M, bottom: 40 },
+      head: [["#", "Item", "Case No.", "Parties", "For", "Listed for"]], body,
+      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 5, textColor: [14, 26, 43], lineColor: [227, 232, 239], lineWidth: 0.5, valign: "top" },
+      headStyles: { fillColor: [247, 248, 250], textColor: [51, 65, 85], fontStyle: "bold", fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 22, halign: "right", textColor: grey }, 1: { cellWidth: 36, halign: "center", fontStyle: "bold" }, 2: { cellWidth: 96, font: "courier", fontStyle: "bold" }, 4: { cellWidth: 62 }, 5: { cellWidth: 86, textColor: grey } },
+      showHead: "everyPage",
+      didDrawPage: foot,
+    });
+    y = doc.lastAutoTable.finalY + 22;
   }
-  doc.autoTable({
-    startY: 80, margin: { left: M, right: M },
-    head: [["#", "Item", "Case No.", "Parties", "For", "Listed for"]], body,
-    styles: { font: "helvetica", fontSize: 8.5, cellPadding: 5, textColor: [14, 26, 43], lineColor: [227, 232, 239], lineWidth: 0.5, valign: "top" },
-    headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", fontSize: 8.5 },
-    columnStyles: { 0: { cellWidth: 22, halign: "right", textColor: grey }, 1: { cellWidth: 36, halign: "center", fontStyle: "bold" }, 2: { cellWidth: 96, font: "courier", fontStyle: "bold" }, 4: { cellWidth: 62 }, 5: { cellWidth: 92, textColor: grey } },
-    didDrawPage: () => {
-      const H = doc.internal.pageSize.getHeight();
-      doc.setFontSize(8); doc.setTextColor(...grey);
-      doc.text(`Vakeel Diary · from the High Court's published cause list · ${new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`, M, H - 20);
-      doc.text(`Page ${doc.internal.getNumberOfPages()}`, W - M, H - 20, { align: "right" });
-    },
-  });
   const fname = `Cause list ${date}.pdf`;
   return new File([doc.output("blob")], fname, { type: "application/pdf" });
 }

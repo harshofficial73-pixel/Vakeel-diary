@@ -112,8 +112,10 @@ def parse_full(pdf_bytes: bytes) -> dict:
             if "Page" in txt and " of " in txt:
                 continue
             if txt.startswith(("HON", "HON’BLE", "HON'BLE")) and "JUSTICE" in txt:
-                close()
                 j = txt.replace("’", "'")
+                if j in judges:   # repeated at the top of every page: the entry continues
+                    continue
+                close()
                 if j not in pending_judges:
                     pending_judges.append(j)
                 judges = pending_judges[:]  # same court continues if footer doesn't change
@@ -152,7 +154,10 @@ def parse_full(pdf_bytes: bytes) -> dict:
                 ws = ws[ci + 1:]
             if cur is None:
                 continue
-            if ws and ws[0][0] < 100:  # full-width note lines (Crime No, earlier cases) belong to detail only
+            first = ws[0][2] if ws else ""
+            is_note = ws and ws[0][0] < 100 and (first.startswith(("Crime", "-Details", "....", "District", "FIR", "Police"))
+                                                  or "Title-" in txt or CASE_RE.match(first.rstrip(",")))
+            if is_note:  # full-width note lines (Crime No, earlier cases) belong to detail only
                 cur["_detail"].append(_text(ws))
                 continue
             line = {"party": [], "pet": [], "resp": []}
