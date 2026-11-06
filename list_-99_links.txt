@@ -1,0 +1,11 @@
+/alldhc.css
+/alldhc.js
+/css/ald_style.css
+/css/bootstrap.min.css
+/js/bootstrap.min.js
+/js/jquery.min.js
+/js/popper.min.js
+https:**oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js
+https:**oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js
+https://www2.allahabadhighcourt.in/clist/-99_0_CauseList12112026_All_05112026065103.pdf
+indexA.html

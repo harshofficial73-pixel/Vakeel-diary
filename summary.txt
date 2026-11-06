@@ -1,0 +1,4 @@
+list_-99.html 200 4049 text/html;charset=UTF-8 https://www.allahabadhighcourt.in/causelist/viewlistA.jsp
+list_-99_doc0.pdf 200 29592979 application/pdf https://www2.allahabadhighcourt.in/clist/-99_0_CauseList12112026_All_05112026065103.pdf
+list_64.html 200 4046 text/html;charset=UTF-8 https://www.allahabadhighcourt.in/causelist/viewlistA.jsp
+list_64_doc0.pdf 200 834608 application/pdf https://www2.allahabadhighcourt.in/clist/64_0_CauseList12112026_64_05112026064706.pdf
