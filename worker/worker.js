@@ -25,6 +25,7 @@ export default {
       "Vary": "Origin",
     };
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+    if (url.pathname === "/") return json({ ok: true, message: "Vakeel Diary relay is running. Paste this address into the app under My cases → Settings." }, 200, cors);
     if (!okOrigin) return json({ error: "This relay only answers your Vakeel Diary app." }, 403, cors);
     try {
       if (url.pathname === "/board") return await board(req, ctx, cors);
