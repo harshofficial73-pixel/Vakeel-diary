@@ -6,6 +6,8 @@
 //   POST /roll/search  submits roll number + year + the captcha *you typed* and returns your cases
 //   POST /roll/case    full details of one case from that search (same court session)
 //   GET  /orders?case=BAIL/16404/2026   order dates and PDF links (court's order-sheet page, no captcha)
+//   GET/PUT /store/<id>  your synced data (court-synced cases, notes, settings), encrypted on your device
+//                        with your passphrase before it is sent; this relay only ever sees ciphertext
 // Nothing is stored here.
 
 const HC = "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/";
@@ -22,7 +24,7 @@ export default {
     const okOrigin = !allowed.length || allowed.includes(origin);
     const cors = {
       "Access-Control-Allow-Origin": okOrigin ? (origin || "*") : allowed[0],
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Vary": "Origin",
     };
@@ -35,6 +37,8 @@ export default {
       if (url.pathname === "/roll/search" && req.method === "POST") return await rollSearch(await req.json(), cors);
       if (url.pathname === "/roll/case" && req.method === "POST") return await rollCase(await req.json(), cors);
       if (url.pathname === "/orders") return await orders(url.searchParams.get("case") || "", cors);
+      if (url.pathname.startsWith("/store/")) return await store(req, env, url.pathname.slice(7), cors);
+      if (url.pathname === "/config") return json({ ok: true, store: !!env.STORE }, 200, cors);
       if (url.pathname === "/") return json({ ok: true, app: "Vakeel Diary relay" }, 200, cors);
       return json({ error: "Not found" }, 404, cors);
     } catch (e) {
@@ -212,4 +216,24 @@ async function rollCase(body, cors) {
     }
   }
   return json({ ok: true, sections }, 200, cors);
+}
+
+// ---------- encrypted per-user store (Cloudflare KV binding "STORE") ----------
+async function store(req, env, id, cors) {
+  if (!env.STORE) return json({ ok: false, error: "Sync storage isn't set up on the relay yet." }, 501, cors);
+  if (!/^[a-f0-9]{64}$/.test(id)) return json({ ok: false, error: "Bad store id." }, 400, cors);
+  const key = "u:" + id;
+  if (req.method === "GET") {
+    const v = await env.STORE.get(key);
+    return v ? new Response(v, { headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...cors } }) : json({ ok: false, empty: true }, 404, cors);
+  }
+  if (req.method === "PUT") {
+    const body = await req.text();
+    if (body.length > 900000) return json({ ok: false, error: "Too much data to sync." }, 413, cors);
+    let box; try { box = JSON.parse(body); } catch (e) { return json({ ok: false, error: "Bad data." }, 400, cors); }
+    if (!box.iv || !box.data) return json({ ok: false, error: "Data must be encrypted." }, 400, cors);
+    await env.STORE.put(key, JSON.stringify({ iv: box.iv, data: box.data, at: Date.now() }));
+    return json({ ok: true }, 200, cors);
+  }
+  return json({ ok: false, error: "Method not allowed" }, 405, cors);
 }

@@ -3,8 +3,10 @@ name: Deploy relay
 # once the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets are added.
 on:
   push:
-    paths: ["worker/worker.js", "wrangler.toml"]
+    paths: ["worker/worker.js", "wrangler.toml", ".github/workflows/relay.yml"]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   deploy:
     runs-on: ubuntu-24.04
@@ -19,4 +21,22 @@ jobs:
             echo "::notice::Relay not deployed automatically: add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to enable this."
             exit 0
           fi
-          npx --yes wrangler@3.114.0 deploy
+          W="npx --yes wrangler@3.114.0"
+          # sync storage for cases, notes and settings (created once)
+          NS=$($W kv namespace list 2>/dev/null | jq -r '.[] | select(.title=="vakeel-relay-STORE") | .id' | head -1)
+          if [ -z "$NS" ]; then
+            $W kv namespace create STORE
+            NS=$($W kv namespace list | jq -r '.[] | select(.title=="vakeel-relay-STORE") | .id' | head -1)
+          fi
+          echo "Store namespace: ${NS:+found}"
+          [ -n "$NS" ] && printf '\n[[kv_namespaces]]\nbinding = "STORE"\nid = "%s"\n' "$NS" >> wrangler.toml
+          $W deploy 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          echo "Relay URL: $URL"
+          # publish the relay address so every device finds it without setup
+          git checkout -- wrangler.toml
+          if [ -n "$URL" ] && [ "$(cat relay.json 2>/dev/null)" != "{\"relay\":\"$URL\"}" ]; then
+            echo "{\"relay\":\"$URL\"}" > relay.json
+            git config user.name "vakeel-diary-bot"; git config user.email "bot@users.noreply.github.com"
+            git add relay.json && git commit -m "Relay address" && git push
+          fi
