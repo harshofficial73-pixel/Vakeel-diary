@@ -1,0 +1,41 @@
+{
+ "board": {
+  "status": 200,
+  "courts": 94,
+  "in_session": 44,
+  "first": {
+   "court": "C.J.",
+   "in_session": true,
+   "serial": "40",
+   "list": "Daily Cause List",
+   "progress": "",
+   "info": "",
+   "case": "ARPLD/360/2024",
+   "title": "UNICON TECHNOLOGY INTERNATIONAL PVT LTD Vs. ABHIJEET FERROTECH LIMITE",
+   "petitioner_counsel": "JITENDRA KUMAR SINGH,ASHISH MISHRA",
+   "respondent_counsel": "TANMAY SADH,RAJNISH SAHAI SAXENA"
+  }
+ },
+ "roll_start": {
+  "status": 200,
+  "has_session": true,
+  "image_prefix": "data:image/png;base64,iVBORw0K",
+  "image_len": 20086
+ },
+ "roll_search_wrong_captcha": {
+  "status": 200,
+  "body": {
+   "ok": false,
+   "error": "The captcha didn't match. Try the new one."
+  }
+ },
+ "orders": {
+  "status": 200,
+  "count": 3,
+  "sheet": true
+ },
+ "missing_fields": {
+  "ok": false,
+  "error": "Missing roll number, captcha."
+ }
+}

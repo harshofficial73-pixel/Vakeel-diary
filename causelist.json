@@ -1,0 +1,90 @@
+{
+ "dates": [
+  "13-11-2026",
+  "12-11-2026",
+  "06-11-2026",
+  "05-11-2026"
+ ],
+ "pdf_mb": 28.6,
+ "entries": 18431,
+ "courts": 56,
+ "sample": [
+  {
+   "date": "13-11-2026",
+   "court": "CJ",
+   "judges": [
+    "HON'BLE THE CHIEF JUSTICE",
+    "HON'BLE JUSTICE KSHITIJ SHAILENDRA"
+   ],
+   "list": "FRESH LIST — FRESH CASE",
+   "sr": "1",
+   "case": "WPIL/2557/2026",
+   "tag": "LO",
+   "parties": "ANSHU KUMAR vs STATE OF U.P. AND 7 OTHERS",
+   "detail": "ETAH Notice No: A20260165981",
+   "petitioner_counsel": "SHYAM SINGH, RAJESH KUMAR",
+   "respondent_counsel": "RAVINDRA KUMAR, DWIVEDI, C.S.C., MANOJ KUMAR MISHRA, MANAS BHARGAVA"
+  },
+  {
+   "date": "13-11-2026",
+   "court": "CJ",
+   "judges": [
+    "HON'BLE THE CHIEF JUSTICE",
+    "HON'BLE JUSTICE KSHITIJ SHAILENDRA"
+   ],
+   "list": "FRESH LIST — FRESH CASE",
+   "sr": "2",
+   "case": "SPLAD/809/2026",
+   "tag": "",
+   "parties": "STATE OF UP vs CHANDRA PAL",
+   "detail": "FATEHPUR",
+   "petitioner_counsel": "ANKIT GAUR, C.S.C.",
+   "respondent_counsel": "MANOJ KUMAR VERMA"
+  }
+ ],
+ "seconds": 30,
+ "orders_sample": {
+  "WPIL/2557/2026": {
+   "sheet": "",
+   "orders": []
+  },
+  "SPLAD/809/2026": {
+   "sheet": "",
+   "orders": []
+  },
+  "SPLAD/812/2026": {
+   "sheet": "",
+   "orders": []
+  }
+ },
+ "applications": [
+  {
+   "case": "WRIA/43400/2002",
+   "application": "51/2026",
+   "sr": "18",
+   "court": "CJ"
+  },
+  {
+   "case": "WRIA/51060/2002",
+   "application": "3/2002",
+   "sr": "19",
+   "court": "CJ"
+  },
+  {
+   "case": "SPLA/536/2023",
+   "application": "3/2026",
+   "sr": "219",
+   "court": "CJ"
+  }
+ ],
+ "dates_U": [
+  "12-11-2026",
+  "06-11-2026",
+  "05-11-2026"
+ ],
+ "dates_S": [
+  "12-11-2026",
+  "06-11-2026",
+  "05-11-2026"
+ ]
+}
