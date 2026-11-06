@@ -19,6 +19,10 @@ jobs:
       - name: Cause list download and parse
         working-directory: tools
         run: python selftest.py
+      - name: Probe order sheets
+        if: always()
+        working-directory: tools
+        run: python probe_orders.py || true
       - name: Relay (display board + captcha flow)
         working-directory: worker
         run: node selftest.mjs
