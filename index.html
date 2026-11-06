@@ -165,6 +165,8 @@ nav.tabs button[aria-current="true"]{color:var(--brand)}
 .lock h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.015em}
 .lock p{margin:0;color:var(--muted)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom,0px));background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgba(14,26,43,.2)}
+.pdf-panel{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:45;width:min(520px,calc(100% - 24px));background:var(--surface);border:1px solid var(--line2);border-radius:14px;padding:14px;box-shadow:0 12px 32px rgba(14,26,43,.18);display:flex;flex-direction:column;gap:10px}
+.pdf-panel .pp-t{font-weight:600}
 .back{display:inline-flex;align-items:center;gap:4px;color:var(--brand);font-weight:600;background:none;border:0;padding:0;cursor:pointer;margin-bottom:12px;font-size:14.5px}
 @media (min-width:700px){ .item{grid-template-columns:64px minmax(0,1fr) auto} main.wrap{padding-top:24px} }
 @media (max-width:380px){ .tiles .tile .v{font-size:24px} .kv{grid-template-columns:1fr} .kv dt{margin-top:6px} }
@@ -184,6 +186,7 @@ nav.tabs button[aria-current="true"]{color:var(--brand)}
   <button data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 15H3.5a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10.2 4V3.5a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.1a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.4 1z"/></svg>More</button>
 </nav>
 <div id="toast" class="toast" hidden></div>
+<div id="pdfPanel" class="pdf-panel" hidden></div>
 
 <script>
 (() => {
@@ -533,10 +536,11 @@ async function loadDetails(id) {
 
 /* ---------- PDF of a day's list ---------- */
 const PDF_LIBS = ["https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js", "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"];
-function loadScript(src) { return new Promise((ok, bad) => { if ([...document.scripts].some(x => x.src === src)) return ok(); const t = document.createElement("script"); t.src = src; t.onload = ok; t.onerror = bad; document.head.appendChild(t); }); }
-async function sharePdf(date) {
-  toast("Preparing PDF…");
-  for (const src of PDF_LIBS) await loadScript(src);
+function loadScript(src) { return new Promise((ok, bad) => { const t = document.createElement("script"); t.src = src; t.onload = ok; t.onerror = bad; document.head.appendChild(t); }); }
+let pdfLibs = null;
+const pdfReady = () => !!(window.jspdf?.jsPDF?.API?.autoTable);
+function preloadPdf() { if (!pdfLibs) pdfLibs = (async () => { for (const src of PDF_LIBS) await loadScript(src); })().catch(e => { pdfLibs = null; throw e; }); return pdfLibs; }
+function buildPdf(date) {
   const day = days().find(x => x.date === date);
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -568,12 +572,29 @@ async function sharePdf(date) {
     },
   });
   const fname = `Cause list ${date}.pdf`;
-  const file = new File([doc.output("blob")], fname, { type: "application/pdf" });
+  return new File([doc.output("blob")], fname, { type: "application/pdf" });
+}
+// Phones only allow the share sheet straight after a tap, so the PDF is built and shared in the same tap.
+// If the tools are still loading, or sharing isn't allowed, a panel offers Share / Open with a fresh tap.
+function showPdfPanel(file) {
+  const el = document.getElementById("pdfPanel"), url = URL.createObjectURL(file);
+  const canShare = navigator.canShare && navigator.canShare({ files: [file] });
+  el.innerHTML = `<div class="pp-t">${esc(file.name)} is ready</div><div class="btns">${canShare ? `<button class="btn primary" id="ppShare">${icon.share}Share</button>` : ""}
+    <a class="btn${canShare ? "" : " primary"}" href="${url}" target="_blank" rel="noopener">${icon.doc}Open PDF</a><a class="btn" href="${url}" download="${esc(file.name)}">Save</a><button class="btn ghost" id="ppClose">Close</button></div>`;
+  el.hidden = false; el._file = file;
+}
+async function shareFile(file) {
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: fname }); return; } catch (e) { if (e.name === "AbortError") return; }
+    try { await navigator.share({ files: [file], title: file.name }); document.getElementById("pdfPanel").hidden = true; return; }
+    catch (e) { if (e.name === "AbortError") return; }
   }
-  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = fname; document.body.appendChild(a); a.click(); a.remove();
-  toast("PDF saved");
+  showPdfPanel(file);
+}
+async function sharePdf(date) {
+  if (pdfReady()) return shareFile(buildPdf(date));        // same tap: share sheet allowed
+  toast("Preparing PDF…");
+  await preloadPdf();
+  showPdfPanel(buildPdf(date));                             // tools just loaded: ask for one more tap
 }
 
 /* ---------- events ---------- */
@@ -586,7 +607,9 @@ document.addEventListener("click", async e => {
   if (d.day !== undefined) { S.homeDay = S.homeDay === d.day || !d.day ? null : d.day; render(); return; }
   if (d.bf) { S.boardFilter = d.bf; render(); return; }
   if (d.cf) { S.casesFilter = d.cf; render(); return; }
-  if (d.pdfDay) { b.disabled = true; try { await sharePdf(d.pdfDay); } catch (err) { toast("Couldn't make the PDF. Check your connection and try again."); } b.disabled = false; return; }
+  if (d.pdfDay) { try { await sharePdf(d.pdfDay); } catch (err) { toast("Couldn't make the PDF. Check your connection and try again."); } return; }
+  if (b.id === "ppShare") { shareFile(document.getElementById("pdfPanel")._file); return; }
+  if (b.id === "ppClose") { document.getElementById("pdfPanel").hidden = true; return; }
   if (d.shareDay) { const day = days().find(x => x.date === d.shareDay); share(`My cases listed on ${full(d.shareDay)}:\n\n` + byCourt(day.hits).map(g => `${courtLabel(g.court)}\n` + g.list.map(h => `  Item ${h.sr} · ${h.case} · ${tc(h.parties)}`).join("\n")).join("\n\n")); return; }
   if (d.icsDay) { const day = days().find(x => x.date === d.icsDay); ics(day.hits.map(h => ({ h, date: d.icsDay })), `cases-${d.icsDay}.ics`); return; }
   if (d.shareCase) { const c = allCases().find(x => x.case === d.shareCase); share(`Your case ${listingText(c.next, c.next.date)}`); return; }
@@ -616,7 +639,7 @@ document.addEventListener("submit", async e => {
   if (e.target.id === "unlock") {
     const pass = document.getElementById("pass").value, btn = e.target.querySelector("button");
     btn.disabled = true; btn.textContent = "Unlocking…";
-    try { S.vault = await load(pass); SET("pass", pass); render(); fetchBoard(); }
+    try { S.vault = await load(pass); SET("pass", pass); render(); fetchBoard(); preloadPdf().catch(() => {}); }
     catch (err) { btn.disabled = false; btn.textContent = "Unlock";
       document.getElementById("lockErr").innerHTML = `<div class="notice bad">${err.code === "pass" ? "That passphrase doesn't match the one saved in GitHub." : err.code === "none" ? "No results yet. Run “Check cause list” once on GitHub, then try again." : "Couldn't download your results. Check your connection."}</div>`; }
   }
@@ -630,6 +653,7 @@ addEventListener("popstate", () => { if (S.caseId) { S.caseId = null; render(); 
   const pass = LS("pass");
   if (pass) { try { S.vault = await load(pass); } catch (e) { if (e.code === "pass") SET("pass", null); } render(); }
   fetchBoard();
+  setTimeout(() => { if (S.vault) preloadPdf().catch(() => {}); }, 1500);
   setInterval(() => { if (document.visibilityState === "visible" && ["home", "board"].includes(S.tab) && !S.caseId) fetchBoard(); }, 30000);
   setInterval(async () => { const p = LS("pass"); const typing = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName);
     if (p && document.visibilityState === "visible" && !typing) { try { S.vault = await load(p); render(); } catch (e) {} } }, 10 * 60000);
