@@ -1,4 +1,4 @@
-// Vakeel Diary relay (Cloudflare Worker, free plan).
+// Vakeel Diary relay (Cloudflare Worker, free plan). Deployed automatically from GitHub.
 // The court sites don't allow browsers on other sites to read them directly, so the app asks this
 // relay instead. It does two things:
 //   GET  /board        live Court View display board for Allahabad, as JSON (cached 20 s)
