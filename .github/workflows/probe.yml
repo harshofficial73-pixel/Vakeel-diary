@@ -1,7 +1,7 @@
 name: Probe court sites
 on:
   push:
-    paths: [".github/workflows/probe.yml"]
+    paths: [".github/workflows/probe.yml", "tools/probe_causelist.py"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -9,18 +9,9 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch court pages
-        run: |
-          mkdir -p out
-          UA="Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36"
-          curl -s -m 20 https://ipinfo.io/json > out/runner.json || true
-          fetch(){ code=$(curl -sSL -A "$UA" -m 40 -c out/cookies.txt -o "out/$1" -w '%{http_code}' "$2" 2>out/$1.err || echo ERR); echo "$1 $code $(wc -c < out/$1 2>/dev/null) $2" | tee -a out/summary.txt; }
-          fetch displayboard.html "https://courtview2.allahabadhighcourt.in/courtview/CourtViewAllahabad.do"
-          fetch causelist_index.html "https://www.allahabadhighcourt.in/causelist/indexA.html"
-          fetch causelist_status.html "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/causelist"
-          fetch roll_wise.html "https://www.allahabadhighcourt.in/apps/status_ccms/index.php/advocate-cases-roll-wise"
-          fetch listed_today.html "https://www.allahabadhighcourt.in/causelist/rollnoA1.jsp"
-          rm -f out/cookies.txt
+      - uses: actions/checkout@v4
+      - run: pip install requests
+      - run: python tools/probe_causelist.py
       - name: Save results to probe-results branch
         run: |
           cd out
