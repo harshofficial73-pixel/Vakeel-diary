@@ -83,6 +83,9 @@ def main():
         except Exception:
             print("Could not open the previous vault (passphrase changed?). Starting fresh.")
 
+    names_key = hashlib.sha1("|".join(sorted(n.upper() for n in names)).encode()).hexdigest()[:12]
+    names_changed = state.get("names_key") != names_key
+    state["names_key"] = names_key
     s = cl.session()
     log = {"at": now.isoformat(timespec="minutes"), "checked": [], "errors": []}
     for lt in LISTS:
@@ -90,8 +93,11 @@ def main():
             dates = cl.list_dates(s, lt)
         except Exception as e:
             log["errors"].append(f"{lt}: dates: {e}"); continue
-        upcoming = [d for d in dates if dt.datetime.strptime(d, "%d-%m-%Y").date() >= today]
-        for d in upcoming[:3]:
+        upcoming = [d for d in dates if dt.datetime.strptime(d, "%d-%m-%Y").date() >= today][-3:]
+        # past lists never change: fetch each one once (the court keeps about 10 listing dates online)
+        past = [d for d in dates if dt.datetime.strptime(d, "%d-%m-%Y").date() < today
+                and (f"{d}|{lt}" not in state["listings"] or names_changed)]
+        for d in upcoming + past:
             key = f"{d}|{lt}"
             try:
                 pdf = cl.download_pdf(s, d, lt)
@@ -109,15 +115,18 @@ def main():
                 traceback.print_exc()
                 log["errors"].append(f"{d} {lt}: {e}")
 
-    # drop listings older than 60 days; build case history from every listing seen
-    cutoff = today - dt.timedelta(days=60)
+    # keep a year of listings; case history below is kept for good
+    cutoff = today - dt.timedelta(days=400)
     state["listings"] = {k: v for k, v in state["listings"].items()
                          if dt.datetime.strptime(v["date"], "%d-%m-%Y").date() >= cutoff}
     for v in state["listings"].values():
         for h in v["hits"]:
             c = state["cases"].setdefault(h["case"], {"case": h["case"], "parties": h["parties"], "side": h["side"], "hearings": {}})
             c["parties"], c["side"] = h["parties"], h["side"]
-            c["hearings"][h["date"]] = {"court": h["court"], "sr": h["sr"], "list": h["list"], "judges": h["judges"]}
+            c["hearings"][h["date"]] = {"court": h["court"], "sr": h["sr"], "list": h["list"], "judges": h["judges"],
+                                        "list_type": h.get("list_type", ""), "tag": h.get("tag", "")}
+            for k in ("petitioner_counsel", "respondent_counsel", "application_in"):
+                if h.get(k): c[k] = h[k]
 
     # telegram: tomorrow and the next listing date after it
     by_date: dict[str, list] = {}

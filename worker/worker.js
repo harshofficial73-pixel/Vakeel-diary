@@ -111,11 +111,14 @@ async function rollStart(cors) {
 }
 
 async function rollSearch(body, cors) {
-  const { session, roll, year, captcha } = body || {};
-  if (!session || !roll || !year || !captcha) return json({ error: "Roll number, year and captcha are all needed." }, 400, cors);
-  if (!/^[A-Z]\/[A-Z]\d{4}\/\d{4}$/i.test(roll)) return json({ error: "Roll number should look like A/X0000/2012." }, 400, cors);
+  const { session, year } = body || {};
+  const roll = String(body?.roll || "").trim().toUpperCase().replace(/\s+/g, "");
+  const captcha = String(body?.captcha || "").trim();
+  const missing = [!roll && "roll number", !year && "case year", !captcha && "captcha", !session && "a fresh captcha (tap New captcha)"].filter(Boolean);
+  if (missing.length) return json({ ok: false, error: "Missing " + missing.join(", ") + "." }, 400, cors);
+  if (!/^[A-Z]{1,3}\/[A-Z]{0,3}\d{1,6}\/\d{4}$/.test(roll)) return json({ ok: false, error: "Roll number should look like A/X0000/2012." }, 400, cors);
   const { cookie, captchaId } = JSON.parse(atob(session));
-  const form = new URLSearchParams({ adv_roll: roll.toUpperCase(), case_year: String(year), captcha_id: captchaId, captchacode: String(captcha) });
+  const form = new URLSearchParams({ adv_roll: roll, case_year: String(year), captcha_id: captchaId, captchacode: captcha });
   const r = await fetch(HC + "get_ListedCaseRoll", {
     method: "POST",
     headers: {
