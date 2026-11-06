@@ -182,16 +182,25 @@ async function orders(caseNo, cors) {
 // ---------- one case's full details (needs the session from a successful roll search) ----------
 async function rollCase(body, cors) {
   const { session, cino } = body || {};
-  if (!session || !cino) return json({ ok: false, error: "Search your cases again first." }, 400, cors);
-  const { cookie } = JSON.parse(atob(session));
-  const r = await fetch(HC + "get_CaseDetails", {
-    method: "POST",
-    headers: { "User-Agent": UA, Cookie: cookie, Referer: HC + "advocate-cases-roll-wise",
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
-    body: new URLSearchParams({ cino, source: body.source || "" }),
-  });
-  const html = await r.text();
-  if (/PHP Error/i.test(html)) return json({ ok: false, error: "The court didn't return details for this case." }, 200, cors);
+  if (!cino) return json({ ok: false, error: "This case has no court record id. Sync it from the court again." }, 400, cors);
+  const ask = async cookie => {
+    const r = await fetch(HC + "get_CaseDetails", {
+      method: "POST",
+      headers: { "User-Agent": UA, Cookie: cookie, Referer: HC + "advocate-cases-roll-wise",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
+      body: new URLSearchParams({ cino, source: body.source || "" }),
+    });
+    return r.text();
+  };
+  const usable = h => h && h.length > 200 && !/PHP Error/i.test(h) && /<table/i.test(h);
+  // the saved session from your sync first; if it has expired, a fresh visit to the same court page
+  let html = "";
+  if (session) { try { html = await ask(JSON.parse(atob(session)).cookie); } catch (e) {} }
+  if (!usable(html)) {
+    const page = await fetch(HC + "advocate-cases-roll-wise", { headers: { "User-Agent": UA } });
+    html = await ask(cookiesFrom(page));
+  }
+  if (!usable(html)) return json({ ok: false, error: "The court didn't return details for this case right now. Try again, or sync this year again." }, 200, cors);
   const sections = [];
   let title = "";
   for (const part of html.split(/(<h\d[^>]*>[\s\S]*?<\/h\d>)/i)) {

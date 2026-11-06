@@ -209,7 +209,7 @@ const S = {
   relay: qs.get("relay") || LS("relay") || "",
   roll: { no: LS("roll") || "", year: LS("rollyear") || "", cap: "", session: null, image: null, msg: "", msgKind: "", busy: false },
   courtCases: JGET("courtcases", {}),       // from "Sync from court": {CASE: {cells, headers, cino, source}}
-  liveOrders: {}, details: {},              // fetched in this session
+  liveOrders: {}, details: JGET("details", {}),
   notes: JGET("notes", {}),
 };
 const relayUrl = p => S.relay.replace(/\/+$/, "") + p;
@@ -446,7 +446,7 @@ function caseView(id) {
   ${c.court ? `<h2 class="sec">From the court's records</h2><div class="card">
     <dl class="kv">${c.court.cells.map((v, i) => `<dt>${esc(c.court.headers[i] || "")}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
     ${c.court.cino ? (det?.sections ? det.sections.map(s => `<div><div style="font-weight:600;margin-bottom:6px">${esc(s.title)}</div><div class="scroll"><table class="res">${s.rows.map(r => `<tr>${r.map(x => `<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</table></div></div>`).join("")
-      : `<div class="btns"><button class="btn" data-details="${esc(id)}">Load full details</button>${det?.error ? `<span class="meta">${esc(det.error)}</span>` : ""}</div>`) : ""}</div>` : ""}
+      : `<div class="btns"><button class="btn" data-details="${esc(id)}"${det?.loading ? " disabled" : ""}>${det?.loading ? "Loading from court…" : "Load full details"}</button>${det?.error ? `<span class="meta">${esc(det.error)}</span>` : ""}</div>`) : ""}</div>` : ""}
 
   <h2 class="sec">Notes</h2>
   <div class="card"><textarea id="note" data-note="${esc(id)}" placeholder="Points to argue, documents pending, client calls… Saved on this device.">${esc(S.notes[id] || "")}</textarea></div>`;
@@ -538,7 +538,7 @@ async function rollSearch() {
         S.courtCases[k] = { cells: row.cells, headers: j.headers, cino: row.cino, source: row.source, year: R.year, session: R.session,
           parties: row.cells.find(x => /\bVS\.?\b|\bV\/S\b/i.test(x)) || "" };
       }
-      SET("courtcases", JSON.stringify(Object.fromEntries(Object.entries(S.courtCases).map(([k, v]) => [k, { ...v, session: undefined }]))));
+      SET("courtcases", JSON.stringify(S.courtCases));
       R.msg = j.rows.length ? `${j.rows.length} cases found for ${R.year}${added ? `, ${added} new` : ""}. They're in your Cases tab. Pick another year to continue.` : (j.message || `The court returned no cases for ${R.year}.`);
       R.msgKind = j.rows.length ? "ok" : ""; R.image = null; R.lastSession = R.session;
     }
@@ -546,11 +546,11 @@ async function rollSearch() {
   R.busy = false; R.cap = ""; render();
 }
 async function loadDetails(id) {
-  const c = S.courtCases[id]; const session = c?.session || S.roll.lastSession;
-  if (!session) { S.details[id] = { error: "Run Sync from court again in this session to load details." }; return render(); }
+  const c = S.courtCases[id]; const session = c?.session || S.roll.lastSession || "";
   S.details[id] = { loading: true }; render();
   try { const r = await fetch(relayUrl("/roll/case"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session, cino: c.cino, source: c.source }) });
-    const j = await r.json(); S.details[id] = j.ok ? j : { error: j.error }; }
+    const j = await r.json(); S.details[id] = j.ok ? { ...j, at: Date.now() } : { error: j.error };
+    if (j.ok) { const all = JGET("details", {}); all[id] = S.details[id]; SET("details", JSON.stringify(all)); } }
   catch (e) { S.details[id] = { error: "Couldn't reach the court site." }; }
   render();
 }
