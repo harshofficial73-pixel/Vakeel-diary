@@ -403,7 +403,8 @@ function caseView(id) {
     ${next ? `<div class="next"><div class="cal"><small>${MON[pd(next.date).getMonth()]}</small><b>${pd(next.date).getDate()}</b></div>
       <div><div style="font-weight:700">${esc(rel(next.date))} · ${esc(courtLabel(next.court))}, Item ${esc(next.sr)}</div><div class="meta">${esc(judgeNames(next.judges))}${next.list ? " · " + esc(tc(next.list.split(" — ").pop())) : ""}</div></div></div>` : ""}
     <div class="btns">${next ? `<button class="btn primary" data-share-case="${esc(id)}">${icon.share}Send to client</button><button class="btn" data-ics-case="${esc(id)}">${icon.cal}Add to calendar</button>` : ""}
-      ${sheet ? `<a class="btn" href="${esc(sheet)}" target="_blank" rel="noopener">${icon.doc}Order sheet</a>` : ""}<button class="btn" data-copy="${esc(id)}">${icon.copy}Copy case no.</button></div>
+      ${sheet ? `<a class="btn" href="${esc(sheet)}" target="_blank" rel="noopener">${icon.doc}Order sheet</a>` : ""}
+      ${(() => { const m = id.match(/\/(\d+)\/(\d{4})$/); return m ? `<a class="btn" href="https://indiankanoon.org/search/?formInput=${encodeURIComponent(`"${m[1]} of ${m[2]}" doctypes: allahabad`)}" target="_blank" rel="noopener">${icon.doc}Find on Indian Kanoon</a>` : ""; })()}<button class="btn" data-copy="${esc(id)}">${icon.copy}Copy case no.</button></div>
   </div>
 
   ${c.petitioner_counsel || c.respondent_counsel ? `<h2 class="sec">Counsel</h2><div class="card"><dl class="kv"><dt>Petitioner</dt><dd>${esc(tc(c.petitioner_counsel) || "—")}</dd><dt>Respondent</dt><dd>${esc(tc(c.respondent_counsel) || "—")}</dd></dl></div>` : ""}
