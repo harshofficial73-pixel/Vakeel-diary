@@ -1,39 +1,27 @@
-"""Follow the Allahabad HC cause list pages a few steps and save what comes back."""
-import re, sys, pathlib, urllib.parse, requests
+"""Step through the combined cause list's roll-no / counsel / court options and save each page."""
+import re, pathlib, requests
 out = pathlib.Path("out"); out.mkdir(exist_ok=True)
 s = requests.Session(); s.headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 14) Chrome/124 Mobile Safari/537.36"
-BASE = "https://www.allahabadhighcourt.in/causelist/"
+B = "https://www.allahabadhighcourt.in/causelist/"
 log = open(out/"summary.txt","a")
-def save(name, r):
-    (out/name).write_bytes(r.content)
-    line = f"{name} {r.status_code} {len(r.content)} {r.headers.get('content-type','')} {r.url}"
-    print(line); log.write(line+"\n")
-r = s.get(BASE+"indexA.html"); 
-for lt in ["Z","F","U"]:
-    r = s.post(BASE+"input1A.jsp", data={"listType": lt}); save(f"cl_{lt}_1.html", r)
-    if lt != "Z": continue
-    html = r.text
-    links = re.findall(r'(?:href|action)\s*=\s*["\']([^"\'#]+)', html, re.I)
-    onclick = re.findall(r"location\.href\s*=\s*['\"]([^'\"]+)", html)
-    forms = re.findall(r'<form.*?</form>', html, re.I|re.S)
-    (out/"cl_Z_links.txt").write_text("\n".join(links+onclick) + "\n\nFORMS:\n" + "\n\n".join(forms))
-    seen = 0
-    for l in links + onclick:
-        u = urllib.parse.urljoin(r.url, l)
-        if "allahabadhighcourt.in" not in u or u.endswith((".css",".js",".gif",".png",".jpg",".ico")): continue
-        seen += 1
-        if seen > 6: break
-        try: save(f"cl_Z_2_{seen}" + (".pdf" if u.lower().endswith(".pdf") else ".html"), s.get(u, timeout=60))
-        except Exception as e: log.write(f"ERR {u} {e}\n")
-    # submit the first form on the page with its first option for each select
-    for i, f in enumerate(forms[:2]):
-        act = re.search(r'action\s*=\s*["\']?([^"\' >]+)', f, re.I)
-        data = {}
-        for m in re.finditer(r'<input[^>]*name=["\']?([^"\' >]+)[^>]*?(?:value=["\']?([^"\'>]*))?', f, re.I): data[m.group(1)] = m.group(2) or ""
-        for m in re.finditer(r'<select[^>]*name=["\']?([^"\' >]+).*?</select>', f, re.I|re.S):
-            opts = re.findall(r'<option[^>]*value=["\']?([^"\' >]+)', m.group(0), re.I)
-            if opts: data[m.group(1)] = opts[0]
-        u = urllib.parse.urljoin(r.url, act.group(1)) if act else r.url
-        log.write(f"FORM{i} POST {u} {data}\n")
-        try: save(f"cl_Z_form{i}.html", s.post(u, data=data, timeout=60))
-        except Exception as e: log.write(f"ERR form {e}\n")
+def save(n, r):
+    (out/n).write_bytes(r.content); l=f"{n} {r.status_code} {len(r.content)} {r.url}"; print(l); log.write(l+"\n")
+s.get(B+"indexA.html")
+r = s.post(B+"input1A.jsp", data={"listType":"Z"})
+date = re.search(r'<option value=([\d-]+) selected', r.text).group(1)
+for crit in ["rollno","counsel","court"]:
+    r = s.post(B+"input2A.jsp", data={"criteria":crit,"listType":"Z","listDate":date}); save(f"step2_{crit}.html", r)
+    forms = re.findall(r'<form.*?</form>', r.text, re.I|re.S)
+    imgs = re.findall(r'<img[^>]+>', r.text, re.I)
+    scripts = re.findall(r'<script(?![^>]*src).*?</script>', r.text, re.I|re.S)
+    (out/f"step2_{crit}_forms.txt").write_text("\n\n".join(forms)+"\n\nIMGS\n"+"\n".join(imgs)+"\n\nSCRIPTS\n"+"\n\n".join(scripts))
+# court-wise: pick the first court option and submit, to see what an actual list page looks like
+r = s.post(B+"input2A.jsp", data={"criteria":"court","listType":"Z","listDate":date})
+f = re.search(r'<form[^>]*action=["\']?([^"\' >]+).*?</form>', r.text, re.I|re.S)
+if f:
+    data = {m.group(1): (m.group(2) or "") for m in re.finditer(r'<input[^>]*name=["\']?([^"\' >]+)[^>]*?value=["\']?([^"\'>]*)', f.group(0), re.I)}
+    for m in re.finditer(r'<select[^>]*name=["\']?([^"\' >]+).*?</select>', f.group(0), re.I|re.S):
+        opts = re.findall(r'<option[^>]*value=["\']?([^"\' >]+)', m.group(0), re.I)
+        if opts: data[m.group(1)] = opts[min(1,len(opts)-1)]
+    log.write(f"COURT FORM {f.group(1)} {data}\n")
+    save("step3_court.html", s.post(requests.compat.urljoin(r.url, f.group(1)), data=data, timeout=90))
